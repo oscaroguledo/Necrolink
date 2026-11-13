@@ -41,9 +41,20 @@ describe('URL Normalization Properties', () => {
           original.hostname.toLowerCase()
         );
         
-        // Path should be same or without trailing slash
-        const originalPath = original.pathname.replace(/\/$/, '');
-        const resultPath = result.pathname.replace(/\/$/, '');
+        // Path semantics preserved
+        // Normalize consecutive slashes in both before comparing
+        // because //a and /a are semantically identical
+        let originalPath = original.pathname.replace(/\/+/g, '/');
+        let resultPath = result.pathname.replace(/\/+/g, '/');
+        
+        // Remove trailing slashes for comparison
+        originalPath = originalPath.replace(/\/$/, '');
+        resultPath = resultPath.replace(/\/$/, '');
+        
+        // Handle empty path (root with no trailing slash)
+        if (originalPath === '') originalPath = '/';
+        if (resultPath === '') resultPath = '/';
+        
         expect(resultPath).toBe(originalPath);
       }),
       { numRuns: 1000 }

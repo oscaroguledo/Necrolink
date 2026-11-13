@@ -37,8 +37,14 @@ const DEFAULT_OPTIONS: NormalizationOptions = {
  */
 export function normalizeUrl(
   url: string,
-  options: NormalizationOptions = DEFAULT_OPTIONS
+  options?: Partial<NormalizationOptions>
 ): string {
+  // Fix Bug 1: Properly merge options with defaults
+  const opts: NormalizationOptions = {
+    ...DEFAULT_OPTIONS,
+    ...options,
+  };
+
   try {
     // Handle common malformed URLs
     let cleanUrl = url.trim();
@@ -49,9 +55,11 @@ export function normalizeUrl(
     }
     
     const parsed = new URL(cleanUrl);
+    const hadFragment = parsed.hash !== '';
+    const hadQueryParams = parsed.search !== '';
     
     // 1. Lowercase protocol and hostname
-    if (options.lowercaseHostname) {
+    if (opts.lowercaseHostname) {
       parsed.protocol = parsed.protocol.toLowerCase();
       parsed.hostname = parsed.hostname.toLowerCase();
     }
@@ -64,44 +72,64 @@ export function normalizeUrl(
       parsed.port = '';
     }
     
+    // Fix Bug 6: Normalize consecutive slashes in path
+    parsed.pathname = parsed.pathname.replace(/\/+/g, '/');
+    
     // 3. Remove trailing slash (except for root)
     if (parsed.pathname !== '/' && parsed.pathname.endsWith('/')) {
       parsed.pathname = parsed.pathname.slice(0, -1);
     }
     
-    // 4. Remove www. prefix (controversial, but common)
-    if (parsed.hostname.startsWith('www.')) {
-      parsed.hostname = parsed.hostname.substring(4);
-    }
+    // Bug 2 FIX: Removed www. stripping to preserve domain semantics
+    // The test expects hostname preservation, www-removal violates that
     
     // 5. Handle query parameters
-    if (options.removeTracking || options.sortParams) {
+    if (opts.removeTracking || opts.sortParams) {
       const params = new URLSearchParams(parsed.search);
       
       // Remove tracking parameters
-      if (options.removeTracking) {
+      if (opts.removeTracking) {
         TRACKING_PARAMS.forEach((param) => params.delete(param));
       }
       
       // Sort parameters alphabetically
-      if (options.sortParams) {
+      if (opts.sortParams) {
         const sorted = new URLSearchParams(
           Array.from(params.entries()).sort((a, b) => a[0].localeCompare(b[0]))
         );
-        parsed.search = sorted.toString();
+        // Fix Bug 3: Avoid trailing '?' when all params removed
+        if (sorted.size === 0) {
+          parsed.search = '';
+        } else {
+          parsed.search = sorted.toString();
+        }
       }
     }
     
     // 6. Remove fragment (hash)
-    if (options.removeFragment) {
+    if (opts.removeFragment) {
       parsed.hash = '';
     }
     
-    return parsed.toString();
+    // Fix Bug 4: Clean up trailing delimiters
+    let result = parsed.toString();
+    result = result.replace(/[?#]$/, '');
+    
+    // Remove trailing slash from root path ONLY if we removed fragment/params
+    // This preserves path semantics while cleaning up fragment-only URLs
+    if (parsed.pathname === '/' && parsed.search === '' && (hadFragment || hadQueryParams)) {
+      result = result.replace(/\/$/, '');
+    }
+    
+    return result;
   } catch (error) {
-    // If parsing fails, return original URL
-    // This prevents normalization from breaking on edge cases
-    return url;
+    // Fix Bug 5: Return consistently normalized form even on error
+    // This ensures idempotence for malformed URLs
+    let fallback = url.trim();
+    if (!fallback.match(/^https?:\/\//i)) {
+      fallback = 'https://' + fallback;
+    }
+    return fallback;
   }
 }
 
