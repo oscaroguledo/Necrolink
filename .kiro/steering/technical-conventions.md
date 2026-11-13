@@ -363,7 +363,7 @@ test(zombie): add property tests for content diff
 - `docs/*`: documentation only
 
 ### Important: Hackathon Rules
-- All commits must be after Oct 30, 2024
+- All commits must be after Oct 30, 2026 (Kiroween 2026 submission period: Oct 30 – Dec 4, 2026)
 - Commit `.kiro/` directory (don't add to `.gitignore`)
 - Keep commit history clean and meaningful
 
@@ -372,7 +372,7 @@ test(zombie): add property tests for content diff
 ```bash
 # .env.local
 WAYBACK_API_KEY=          # if we get API access
-kiro_API_KEY=        # for zombie detection
+KIRO_API_KEY=        # for zombie detection
 NEXT_PUBLIC_APP_URL=      # for CORS
 NODE_ENV=development
 RATE_LIMIT_MAX=100        # requests per 15 minutes

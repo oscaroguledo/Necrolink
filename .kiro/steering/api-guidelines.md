@@ -234,7 +234,7 @@ function findClosestSnapshot(
 }
 ```
 
-## kiro kiro API
+## Kiro API
 
 Used for zombie detection — comparing archived and current page content.
 
@@ -286,12 +286,10 @@ A link is NOT a zombie if:
 
 ### Rate Limits
 
-kiro API limits (as of Dec 2024):
-- **kiro 3.5 Sonnet**: 50 requests/min, 100,000 tokens/min
-- **kiro 3 Opus**: 20 requests/min, 80,000 tokens/min
+Kiro API rate limits and credit usage depend on the Kiro account plan; check the Kiro console for current numbers (Nov 2026).
 
 For our use case:
-- Use **kiro 3.5 Sonnet** (faster, cheaper, sufficient accuracy)
+- Call the Kiro API (OpenAI-compatible `/chat/completions`) with `KIRO_API_KEY`; model from `KIRO_MODEL` (default `kiro/auto`)
 - Limit to **40 requests/min** to stay under limits
 - Queue zombie checks and process in batches
 
@@ -300,7 +298,7 @@ For our use case:
 - Only check links that are **suspicious** (redirects, different domain, changed title tag)
 - Truncate content to 2000 characters per version (4000 tokens total)
 - Cache results by URL + content hash
-- Estimated cost: **$0.003 per comparison** (well within hackathon budget)
+- Each comparison uses Kiro credits; keep calls to suspicious links only
 
 ## Content Fetching Best Practices
 

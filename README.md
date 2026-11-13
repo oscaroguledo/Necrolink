@@ -20,9 +20,10 @@ You get back a fixed document with dead links replaced by archive URLs and zombi
 
 ## 🎯 Current Status
 
-**In active development** for the AWS & kiro Hackathon (Dec 2024).
+**In active development** for the Kiroween 2026 hackathon (Dec 2026).
 
 This project demonstrates advanced usage of Kiro IDE including:
+
 - Custom MCP server for Wayback Machine integration
 - Property-based testing for URL parsers
 - Automated workflows with hooks and steering files
@@ -46,7 +47,8 @@ Visit `http://localhost:3000` to start checking links.
 ## 📦 Features
 
 ### MVP (Must-Have)
-- [x] Project setup and structure
+
+- [X] Project setup and structure
 - [ ] Link extraction from PDF, Markdown, and web pages
 - [ ] Link health checker (ghost/zombie/living classification)
 - [ ] Internet Archive Wayback Machine integration
@@ -55,6 +57,7 @@ Visit `http://localhost:3000` to start checking links.
 - [ ] Export fixed documents
 
 ### Stretch Goals
+
 - [ ] Browser extension
 - [ ] GitHub Action for CI/CD link checking
 - [ ] BibTeX citation support
@@ -64,10 +67,10 @@ Visit `http://localhost:3000` to start checking links.
 
 - **Frontend**: Next.js 14, React, TypeScript
 - **Backend**: Node.js API routes
-- **AI**: kiro kiro (via Kiro)
+- **AI**: Kiro API (zombie detection)
 - **APIs**: Internet Archive Wayback Machine CDX API
 - **Deployment**: AWS (Vercel-compatible)
-- **Testing**: Jest with property-based testing
+- **Testing**: Vitest with fast-check property-based testing
 - **Development**: Kiro IDE with custom MCP server
 
 ## 📚 Documentation
@@ -87,5 +90,5 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🏆 Acknowledgments
 
-Built for the AWS & kiro Hackathon 2024. Special thanks to the Internet Archive for providing the Wayback Machine API that makes this project possible.
+Built for Kiroween 2026. Special thanks to the Internet Archive for providing the Wayback Machine API that makes this project possible.
 Links rot. A large share of web pages from about ten years ago are already gone (Pew Research has measured this), and academic citations rot fast too. Students, researchers, journalists, librarians and Wikipedia editors all deal with it. Your thesis bibliography, your course syllabus and your old blog are slowly filling up with ghosts.

@@ -21,9 +21,10 @@ npm install
 # Copy environment variables
 cp .env.example .env.local
 
-# Add your Anthropic API key
+# Add your Kiro API key
 # Edit .env.local and add:
-# ANTHROPIC_API_KEY=your_key_here
+# KIRO_API_KEY=your_key_here
+# KIRO_API_BASE_URL=your_kiro_endpoint
 ```
 
 ## Run Locally
