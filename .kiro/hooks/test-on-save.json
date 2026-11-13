@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run Tests on Save",
+      "trigger": "PostFileSave",
+      "description": "Automatically run tests when TypeScript files are saved",
+      "matcher": "\\.(ts|tsx)$",
+      "action": {
+        "type": "command",
+        "command": "npm test -- --passWithNoTests --silent",
+        "timeout": 30
+      }
+    }
+  ]
+}

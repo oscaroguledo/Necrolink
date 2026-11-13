@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Update README on Spec Change",
+      "trigger": "PostFileSave",
+      "description": "Keep README in sync when specs are updated",
+      "matcher": "\\.kiro/specs/.*\\.md$",
+      "action": {
+        "type": "agent",
+        "prompt": "A spec file was just updated. Review the change and update the README.md file if any feature status or project description needs to be revised to stay in sync with the specs."
+      }
+    }
+  ]
+}
