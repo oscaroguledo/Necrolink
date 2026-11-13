@@ -20,7 +20,7 @@ You get back a fixed document with dead links replaced by archive URLs and zombi
 
 ## 🎯 Current Status
 
-**In active development** for the AWS & Anthropic Hackathon (Dec 2024).
+**In active development** for the AWS & kiro Hackathon (Dec 2024).
 
 This project demonstrates advanced usage of Kiro IDE including:
 - Custom MCP server for Wayback Machine integration
@@ -64,7 +64,7 @@ Visit `http://localhost:3000` to start checking links.
 
 - **Frontend**: Next.js 14, React, TypeScript
 - **Backend**: Node.js API routes
-- **AI**: Anthropic Claude (via Kiro)
+- **AI**: kiro kiro (via Kiro)
 - **APIs**: Internet Archive Wayback Machine CDX API
 - **Deployment**: AWS (Vercel-compatible)
 - **Testing**: Jest with property-based testing
@@ -87,5 +87,5 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 🏆 Acknowledgments
 
-Built for the AWS & Anthropic Hackathon 2024. Special thanks to the Internet Archive for providing the Wayback Machine API that makes this project possible.
+Built for the AWS & kiro Hackathon 2024. Special thanks to the Internet Archive for providing the Wayback Machine API that makes this project possible.
 Links rot. A large share of web pages from about ten years ago are already gone (Pew Research has measured this), and academic citations rot fast too. Students, researchers, journalists, librarians and Wikipedia editors all deal with it. Your thesis bibliography, your course syllabus and your old blog are slowly filling up with ghosts.

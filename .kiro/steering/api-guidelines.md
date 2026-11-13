@@ -1,6 +1,6 @@
 ---
 name: API Usage Guidelines
-description: Rate limits, caching strategies, and best practices for external APIs (Wayback Machine, Anthropic)
+description: Rate limits, caching strategies, and best practices for external APIs (Wayback Machine, kiro)
 inclusion: always
 ---
 
@@ -234,7 +234,7 @@ function findClosestSnapshot(
 }
 ```
 
-## Anthropic Claude API
+## kiro kiro API
 
 Used for zombie detection — comparing archived and current page content.
 
@@ -286,12 +286,12 @@ A link is NOT a zombie if:
 
 ### Rate Limits
 
-Anthropic API limits (as of Dec 2024):
-- **Claude 3.5 Sonnet**: 50 requests/min, 100,000 tokens/min
-- **Claude 3 Opus**: 20 requests/min, 80,000 tokens/min
+kiro API limits (as of Dec 2024):
+- **kiro 3.5 Sonnet**: 50 requests/min, 100,000 tokens/min
+- **kiro 3 Opus**: 20 requests/min, 80,000 tokens/min
 
 For our use case:
-- Use **Claude 3.5 Sonnet** (faster, cheaper, sufficient accuracy)
+- Use **kiro 3.5 Sonnet** (faster, cheaper, sufficient accuracy)
 - Limit to **40 requests/min** to stay under limits
 - Queue zombie checks and process in batches
 

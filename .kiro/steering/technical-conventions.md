@@ -25,7 +25,7 @@ inclusion: always
       ┌────────┴────────┐
       │                 │
 ┌─────▼─────┐    ┌──────▼──────┐
-│  Wayback  │    │   Claude    │
+│  Wayback  │    │   kiro    │
 │  Machine  │    │  (Zombie    │
 │    API    │    │  Detection) │
 └───────────┘    └─────────────┘
@@ -211,7 +211,7 @@ test('normalized URLs preserve domain and path', () => {
 
 ### Unit Tests for Business Logic
 - Test each link checker independently
-- Mock external APIs (Wayback, Claude)
+- Mock external APIs (Wayback, kiro)
 - Aim for 80%+ coverage on `src/lib/`
 
 ### Integration Tests for API Routes
@@ -296,7 +296,7 @@ test(zombie): add property tests for content diff
 ```bash
 # .env.local
 WAYBACK_API_KEY=          # if we get API access
-ANTHROPIC_API_KEY=        # for zombie detection
+kiro_API_KEY=        # for zombie detection
 NEXT_PUBLIC_APP_URL=      # for CORS
 NODE_ENV=development
 RATE_LIMIT_MAX=100        # requests per 15 minutes

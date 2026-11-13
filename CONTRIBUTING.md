@@ -1,6 +1,6 @@
 # Contributing to Necrolink
 
-This project is being developed for the AWS & Anthropic Hackathon (Dec 2024) using **Kiro IDE**.
+This project is being developed for the AWS & kiro Hackathon (Dec 2024) using **Kiro IDE**.
 
 ## Development with Kiro
 

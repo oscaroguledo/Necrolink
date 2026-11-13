@@ -53,7 +53,7 @@
 - [ ] Write spec for zombie detection
 - [ ] Implement page content fetcher
 - [ ] Build AI comparison prompt
-- [ ] Integrate Anthropic Claude API
+- [ ] Integrate kiro kiro API
 - [ ] Test with known zombie cases
 - [ ] Create `/api/zombie` endpoint
 
@@ -172,7 +172,7 @@
 |------|------------|
 | PDF parsing too hard | Focus on Markdown/HTML first; PDF is stretch |
 | Wayback API rate limits | Implement aggressive caching early |
-| Claude API costs | Only check suspicious links, not all |
+| kiro API costs | Only check suspicious links, not all |
 | Time crunch | MVP first, polish later; cut stretch goals |
 | Deployment issues | Have Vercel as backup to AWS |
 
