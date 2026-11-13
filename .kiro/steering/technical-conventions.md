@@ -177,7 +177,83 @@ export async function checkLink(url: string): Promise<Result<LinkStatus>> {
 - Return 400 with specific field errors
 - Never trust client data
 
+## Streaming Results (Critical for UX)
+
+Serverless functions have time limits. Don't wait for all links to finish.
+
+**Stream results as each link completes:**
+
+```typescript
+// app/api/check/route.ts
+export async function POST(request: Request) {
+  const { links } = await request.json();
+  
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const limit = pLimit(10); // max 10 concurrent checks
+      
+      const promises = links.map((link) =>
+        limit(async () => {
+          const result = await checkLink(link);
+          const chunk = encoder.encode(
+            `data: ${JSON.stringify(result)}\n\n`
+          );
+          controller.enqueue(chunk);
+        })
+      );
+      
+      await Promise.all(promises);
+      controller.close();
+    },
+  });
+  
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+```
+
+**On the client, update UI as tombstones arrive:**
+
+```typescript
+// Tombstones appear one by one in the graveyard
+const eventSource = new EventSource('/api/check');
+eventSource.onmessage = (event) => {
+  const result = JSON.parse(event.data);
+  setLinks((prev) => [...prev, result]);
+  // Animate tombstone rising from ground
+};
+```
+
 ## Testing Strategy
+
+### Vitest for Unit Tests
+Fast, ESM-native, better DX than Jest for Vite/Next.js projects:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+});
+```
 
 ### Property-Based Testing for Parsers
 Use `fast-check` for URL normalization, date extraction, and document reconstruction:
@@ -304,18 +380,26 @@ RATE_LIMIT_MAX=100        # requests per 15 minutes
 
 Never commit `.env.local` — use `.env.example` for documentation.
 
-## Deployment
+## Deployment Options
 
-### AWS Deployment (Preferred for Hackathon)
-- Use AWS Amplify or Elastic Beanstalk
-- Store credentials in AWS Secrets Manager
-- Set up CloudWatch for logging
-- Enable HTTPS only
-
-### Vercel (Backup)
-- Zero-config deployment
-- Automatic HTTPS and CDN
+### Vercel (Easiest, Recommended)
+- Zero-config deployment: `vercel`
+- Automatic HTTPS and global CDN
 - Built-in analytics
+- Streaming responses work out of the box
+- Free tier covers hackathon needs
+
+### AWS Amplify (Sponsor Platform)
+- Shows AWS integration for judges
+- `amplify init && amplify add hosting && amplify publish`
+- Use AWS Secrets Manager for API keys
+- CloudWatch for logging
+- More complex but demonstrates AWS usage
+
+### Cloudflare Pages (Alternative)
+- Free tier with Workers
+- Global edge network
+- Good DX with `wrangler`
 
 ## Monitoring and Logging
 
