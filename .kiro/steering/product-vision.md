@@ -13,6 +13,7 @@ Necrolink uses a **spooky resurrection theme** throughout the experience. This i
 ### Visual Language
 
 - **👻 Ghosts (Dead Links)**: Tombstones, gravestones, 404 errors
+- **🪦 Lost Souls (Unrecoverable Links)**: Dead with no archived copy; an empty grave, honest that it can't be fixed
 - **🧟 Zombies (Changed Links)**: Shambling across the page, infected, mutated
 - **🕯️ Living Links**: Candles still burning, healthy, alive
 - **⚰️ The Graveyard**: Your results dashboard showing all the deceased URLs
@@ -51,7 +52,7 @@ Users should be able to:
 
 ### 2. Clear Classification
 Every link status should be immediately obvious:
-- Color coding (red = ghost, yellow = zombie, green = living)
+- Color coding (red = ghost, grey = lost soul, yellow = zombie, green = living)
 - Icons that work without color (accessibility)
 - One-line explanations for zombies ("now redirects to casino site")
 
@@ -84,7 +85,8 @@ The results screen is organized as a **cemetery view**:
 │  📄 document.pdf                    │
 │  ⏱️  Scanned: 2 minutes ago         │
 │                                     │
-│  👻 11 Ghosts (dead)                │
+│  👻 9 Ghosts (dead, resurrectable)  │
+│  🪦 2 Lost Souls (dead, no archive) │
 │  🧟 3 Zombies (changed)             │
 │  🕯️ 26 Living (healthy)             │
 │                                     │
@@ -109,7 +111,7 @@ A good demo shows:
 
 ## Edge Cases to Handle Gracefully
 
-1. **No archived snapshot exists**: Flag as "permanently lost" with ghost + warning icon
+1. **No archived snapshot exists**: Classify as a 🪦 Lost Soul; keep the URL, list it separately, never pretend it was fixed
 2. **Multiple snapshots available**: Pick the closest to the original citation date
 3. **Paywalled content**: Can't verify zombie status; mark as "uncertain"
 4. **Redirects**: Follow up to 3 redirects before checking content

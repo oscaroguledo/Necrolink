@@ -1,4 +1,4 @@
-# Spec: Link Health Checking (Ghost/Zombie/Living)
+# Spec: Link Health Checking (Ghost/Lost Soul/Zombie/Living)
 
 **Status**: Draft  
 **Created**: 2026-11-12  
@@ -14,7 +14,10 @@
 - Check if a URL times out or DNS fails (ghost)
 - Query Wayback Machine CDX API for archived snapshots
 - Find closest archived snapshot to citation date
-- Classify links as: ghost, zombie, living, or error
+- Classify links as: ghost, lost, zombie, living, or error
+- A dead link with no usable archived snapshot is a **lost soul** (`lost`), never a ghost
+- A snapshot is only usable if its archived status code is 200 (no archived 404 pages)
+- Lost souls are listed separately in results and left unchanged in the exported document
 - Handle rate limits on Wayback Machine API (5 req/sec)
 - Cache CDX lookups for 24 hours
 - Support concurrent checking (max 10 links at once)
@@ -83,32 +86,26 @@
                ┌───────┴────────┐
                │                │
                ▼                ▼
-         ┌──────────┐     ┌──────────┐
-         │ Archived │     │ No       │
-         │ Found    │     │ Snapshots│
-         └────┬─────┘     └──────────┘
-              │
-              ▼
-      ┌────────────────┐
-      │ Suspicious?    │
-      │ (redirected,   │
-      │  title change) │
-      └────┬───────────┘
-           │
-     ┌─────┴──────┐
-     │            │
-     ▼            ▼
-┌─────────┐  ┌─────────┐
-│ Ghost   │  │ Zombie? │
-│ (dead)  │  │(changed)│
-└─────────┘  └─────────┘
-             (see spec 03)
+         ┌──────────┐     ┌────────────┐
+         │ Archived │     │ No usable  │
+         │ Found    │     │ snapshot   │
+         └────┬─────┘     └─────┬──────┘
+              │                 │
+              ▼                 ▼
+       ┌─────────────┐   ┌─────────────┐
+       │ Ghost       │   │ Lost soul   │
+       │ (resurrect  │   │ (dead, no   │
+       │  via archive│   │  archive)   │
+       └─────────────┘   └─────────────┘
+
+  Separately, pages that load but look suspicious
+  (cross-domain redirect, title change) → Zombie? (see spec 03)
 ```
 
 ### Link Classification Logic
 
 ```typescript
-type LinkStatus = 'living' | 'ghost' | 'zombie' | 'error';
+type LinkStatus = 'living' | 'ghost' | 'lost' | 'zombie' | 'error';
 
 async function classifyLink(link: Link): Promise<CheckResult> {
   // 1. Try to fetch the current page
@@ -133,6 +130,15 @@ async function classifyLink(link: Link): Promise<CheckResult> {
       link.citationDate
     );
     
+    // 4a. Lost soul: dead, and no usable (status 200) snapshot exists
+    if (!archived) {
+      return {
+        status: 'lost',
+        error: fetchResult.error ?? 'No archived snapshot found'
+      };
+    }
+
+    // 4b. Ghost: dead, but resurrectable from the archive
     return {
       status: 'ghost',
       archived,
@@ -403,7 +409,13 @@ export async function POST(request: Request) {
   - Query CDX for URL
   - Filter for status 200
   - Find closest to citation date
-  - Return snapshot metadata
+  - Return snapshot metadata, or `null` when no usable snapshot exists
+
+- [ ] **Task 3.2b**: Lost soul classification
+  - Dead link + `null` snapshot → status `lost`
+  - Snapshots that are all non-200 (archived 404/redirect pages) → `lost`
+  - Export leaves lost-soul URLs unchanged; results list them under "Lost Souls"
+  - Unit tests: never-archived URL, archive with only 404 snapshots
 
 - [ ] **Task 3.3**: Build rate limiter
   - Enforce 5 req/sec limit
@@ -466,7 +478,7 @@ export async function POST(request: Request) {
 
 - [ ] **Task 6.3**: Monitoring metrics
   - Track check duration percentiles
-  - Track ghost/zombie/living ratio
+  - Track ghost/lost/zombie/living ratio
   - Track Wayback API latency
   - Track cache hit rate
 
@@ -485,6 +497,7 @@ export async function POST(request: Request) {
 
 - [ ] **Task 7.3**: Property-based tests
   - Closest snapshot is always closest
+  - A dead link is always exactly one of ghost or lost (ghost ⇔ snapshot exists)
   - Rate limiter never exceeds limit
   - Cache always returns same data within TTL
 
@@ -495,6 +508,7 @@ export async function POST(request: Request) {
 ### Functional
 1. ✅ Correctly classifies dead links (404, timeout, DNS fail)
 2. ✅ Finds archived snapshots for dead links
+2b. ✅ Labels dead links with no usable snapshot as lost souls (never a fake fix)
 3. ✅ Finds closest snapshot to citation date
 4. ✅ Flags suspicious links for zombie detection
 5. ✅ Never exceeds Wayback rate limits

@@ -2,7 +2,7 @@
  * Core types for Necrolink
  */
 
-export type LinkStatus = 'ghost' | 'zombie' | 'living' | 'checking' | 'error';
+export type LinkStatus = 'ghost' | 'lost' | 'zombie' | 'living' | 'checking' | 'error';
 
 export interface Position {
   page?: number; // for PDFs
@@ -77,6 +77,7 @@ export interface CheckResult {
 
 export interface GraveyardStats {
   ghosts: number;
+  lost: number; // dead links with no archived snapshot
   zombies: number;
   living: number;
   errors: number;

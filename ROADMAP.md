@@ -36,7 +36,7 @@
 - [ ] Write spec for link checking
 - [ ] Implement CDX API client with rate limiting
 - [ ] Build response caching layer (in-memory for now)
-- [ ] Create link status classifier (ghost/zombie/living)
+- [ ] Create link status classifier (ghost/lost soul/zombie/living)
 - [ ] Create `/api/check` endpoint
 - [ ] Test with rate limiting and error handling
 
@@ -64,7 +64,7 @@
 ### Day 15-16: Graveyard Interface
 - [ ] Design graveyard results view (Figma or sketch)
 - [ ] Build upload interface
-- [ ] Build results dashboard with ghost/zombie/living sections
+- [ ] Build results dashboard with ghost/lost soul/zombie/living sections
 - [ ] Add resurrection action (replace with archive URL)
 - [ ] Show before/after preview
 

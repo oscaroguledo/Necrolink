@@ -30,7 +30,7 @@ This document tracks **how** you're using Kiro IDE features for the hackathon wr
 - `.kiro/specs/01-link-extraction.md` - First spec for parsing PDFs, Markdown, HTML
 
 **What we'll create**:
-- `.kiro/specs/02-link-checking.md` - Ghost/zombie/living classification
+- `.kiro/specs/02-link-checking.md` - Ghost/lost soul/zombie/living classification
 - `.kiro/specs/03-zombie-detection.md` - AI-powered content comparison
 - `.kiro/specs/04-document-export.md` - Reconstructing fixed documents
 
@@ -183,7 +183,7 @@ Necrolink resurrects dead links and catches zombies.
 Upload the PDF to Necrolink, show the graveyard loading animation.
 
 ### 0:40–1:20 Results
-"11 ghosts (404s), 3 zombies (changed content), 26 living. Look at this zombie: it used to be a research page, now it's a gambling site."
+"9 ghosts resurrected from the archive, 2 lost souls with no copy, 3 zombies (changed content), 26 living. Look at this zombie: it used to be a research page, now it's a gambling site."
 
 ### 1:20–2:00 Kiro MCP Server
 "I built this using Kiro IDE. Here's the custom Wayback Machine MCP server I created—I can query the Internet Archive directly in my editor."

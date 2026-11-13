@@ -12,6 +12,7 @@
 - Reconstruct original document with fixed links
 - Replace ghost links with Wayback Machine URLs
 - Add footnotes/annotations for zombie links explaining what changed
+- Leave lost-soul links (dead, no archived copy) unchanged, marked 🪦 with a footnote telling the reader to find another source
 - Preserve original document structure (paragraphs, headings, lists)
 - Support export for Markdown files
 - Support export for HTML files
@@ -21,7 +22,7 @@
 ### Should Have
 - Support PDF export (generate new PDF with fixed links)
 - Preserve document formatting (bold, italic, code blocks in MD)
-- Add visual indicators (emoji) for fixed links: 👻→⏮️
+- Add visual indicators (emoji): 👻→⏮️ resurrected, 🧟 zombie, 🪦 lost soul
 - Generate summary report of changes made
 - Allow selective fixing (user chooses which links to fix)
 
@@ -53,6 +54,7 @@
 │  Build Replacement Map                       │
 │  ghost → Wayback URL                         │
 │  zombie → annotation with explanation        │
+│  lost   → unchanged URL + 🪦 footnote         │
 └──────────────┬───────────────────────────────┘
                │
                ▼
@@ -68,7 +70,7 @@
 ┌──────────────────────────────────────────────┐
 │  Add Metadata Footer                         │
 │  "Fixed by Necrolink on [date]"              │
-│  "X ghosts resurrected, Y zombies flagged"   │
+│  "X resurrected, Y zombies, Z lost souls"    │
 └──────────────┬───────────────────────────────┘
                │
                ▼
@@ -93,10 +95,10 @@ interface ReplacementRule {
   originalUrl: string;
   position: Position;
   replacement: {
-    type: 'ghost' | 'zombie' | 'none';
+    type: 'ghost' | 'zombie' | 'lost' | 'none';
     newUrl?: string;           // for ghosts
-    annotation?: string;        // for zombies
-    footnoteId?: number;        // for zombies
+    annotation?: string;        // for zombies and lost souls
+    footnoteId?: number;        // for zombies and lost souls (shared numbering)
   };
 }
 
@@ -130,7 +132,19 @@ function buildReplacementMap(
         replacement: {
           type: 'zombie',
           annotation: result.zombie.reason,
-          footnoteId: rules.filter(r => r.replacement.type === 'zombie').length + 1,
+          footnoteId: rules.filter(r => r.replacement.footnoteId).length + 1,
+        },
+      });
+    } else if (result.status === 'lost') {
+      // Dead with no archived copy: keep the URL, add a note
+      rules.push({
+        linkId: link.id,
+        originalUrl: link.url,
+        position: link.position,
+        replacement: {
+          type: 'lost',
+          annotation: 'This link is dead and no archived copy exists. Find another source.',
+          footnoteId: rules.filter(r => r.replacement.footnoteId).length + 1,
         },
       });
     }
@@ -184,6 +198,15 @@ export async function reconstructMarkdown(
       footnotes.push(
         `[^${footnoteId}]: ⚠️ This link may have changed: ${rule.replacement.annotation}`
       );
+    } else if (rule.replacement.type === 'lost') {
+      // Keep the URL; there is nothing to resurrect it from
+      const footnoteId = rule.replacement.footnoteId!;
+
+      if (node.children[0]?.type === 'text') {
+        node.children[0].value = `🪦 ${node.children[0].value}[^${footnoteId}]`;
+      }
+
+      footnotes.push(`[^${footnoteId}]: 🪦 Lost soul: ${rule.replacement.annotation}`);
     }
   });
   
@@ -199,7 +222,8 @@ export async function reconstructMarkdown(
   // Add metadata footer
   result += `\n\n---\n\n*Fixed by [Necrolink](https://necrolink.dev) on ${new Date().toLocaleDateString()}*\n`;
   result += `*${replacements.filter(r => r.replacement.type === 'ghost').length} ghosts resurrected, `;
-  result += `${replacements.filter(r => r.replacement.type === 'zombie').length} zombies flagged*\n`;
+  result += `${replacements.filter(r => r.replacement.type === 'zombie').length} zombies flagged, `;
+  result += `${replacements.filter(r => r.replacement.type === 'lost').length} lost souls*\n`;
   
   return result;
 }
@@ -237,11 +261,23 @@ export function reconstructHTML(
       const footnoteId = rule.replacement.footnoteId!;
       
       $elem.attr('data-necrolink-zombie', 'true');
-      $elem.append(`<sup><a href="#zombie-${footnoteId}">[${footnoteId}]</a></sup>`);
+      $elem.append(`<sup><a href="#note-${footnoteId}">[${footnoteId}]</a></sup>`);
       
       footnotes.push(`
-        <li id="zombie-${footnoteId}">
+        <li id="note-${footnoteId}">
           ⚠️ This link may have changed: ${rule.replacement.annotation}
+        </li>
+      `);
+    } else if (rule.replacement.type === 'lost') {
+      const footnoteId = rule.replacement.footnoteId!;
+
+      $elem.attr('data-necrolink-lost', 'true');
+      $elem.prepend('<span title="Dead, no archived copy">🪦</span> ');
+      $elem.append(`<sup><a href="#note-${footnoteId}">[${footnoteId}]</a></sup>`);
+
+      footnotes.push(`
+        <li id="note-${footnoteId}">
+          🪦 Lost soul: ${rule.replacement.annotation}
         </li>
       `);
     }
@@ -261,6 +297,7 @@ export function reconstructHTML(
   // Add metadata footer
   const ghostCount = replacements.filter(r => r.replacement.type === 'ghost').length;
   const zombieCount = replacements.filter(r => r.replacement.type === 'zombie').length;
+  const lostCount = replacements.filter(r => r.replacement.type === 'lost').length;
   
   $('body').append(`
     <hr>
@@ -268,7 +305,7 @@ export function reconstructHTML(
       <p><em>
         Fixed by <a href="https://necrolink.dev">Necrolink</a> on ${new Date().toLocaleDateString()}
       </em></p>
-      <p><em>${ghostCount} ghosts resurrected, ${zombieCount} zombies flagged</em></p>
+      <p><em>${ghostCount} ghosts resurrected, ${zombieCount} zombies flagged, ${lostCount} lost souls</em></p>
     </footer>
   `);
   
@@ -365,11 +402,13 @@ describe('Document Reconstruction Properties', () => {
 - [ ] **Task 1.3**: Add visual indicators
   - 👻→⏮️ for resurrected links
   - 🧟 for zombie links
-  - Footnote references [^1]
+  - 🪦 for lost souls (URL unchanged)
+  - Footnote references [^1], numbered across zombies and lost souls
 
 - [ ] **Task 1.4**: Unit tests
   - Test ghost link replacement
   - Test zombie footnote addition
+  - Test lost soul keeps original URL and gets a 🪦 footnote
   - Test footer generation
   - Test with no fixes (should just add footer)
 
@@ -396,6 +435,7 @@ describe('Document Reconstruction Properties', () => {
   - Match links with check results
   - Create replacement rules for ghosts
   - Create footnotes for zombies
+  - Create footnotes for lost souls
   - Assign footnote numbers
 
 - [ ] **Task 3.2**: Handle edge cases
@@ -425,7 +465,7 @@ describe('Document Reconstruction Properties', () => {
 - [ ] **Task 5.1**: Generate change summary
   - Count ghosts resurrected
   - Count zombies flagged
-  - List links that couldn't be fixed
+  - Count lost souls and list them (links that couldn't be fixed)
   - Format as markdown
 
 - [ ] **Task 5.2**: Add to document footer
@@ -442,6 +482,7 @@ describe('Document Reconstruction Properties', () => {
 - [ ] **Task 6.2**: Test replacement correctness
   - All ghosts replaced
   - All zombies annotated
+  - Lost-soul URLs are never changed
   - No links missed
   - No incorrect replacements
 
@@ -471,6 +512,7 @@ describe('Document Reconstruction Properties', () => {
 ### Functional
 1. ✅ Correctly replaces all ghost links with archive URLs
 2. ✅ Adds footnotes for all zombie links
+2b. ✅ Leaves lost-soul URLs unchanged and marks them 🪦 with a note
 3. ✅ Preserves original document structure
 4. ✅ Exports to correct file format
 5. ✅ Downloadable file works in viewer/editor
@@ -532,7 +574,7 @@ Content-Disposition: attachment; filename="fixed-document.md"
 # My Research Paper
 
 Check out [this study](https://example.com/study) and 
-[this reference](https://oldsite.com/ref).
+[this reference](https://oldsite.com/ref). See also [the dataset](https://gone.example.org/data).
 ```
 
 **Output** (after fixing):
@@ -540,7 +582,7 @@ Check out [this study](https://example.com/study) and
 # My Research Paper
 
 Check out 👻→⏮️ [this study](https://web.archive.org/web/20230101/https://example.com/study) and 
-🧟 [this reference](https://oldsite.com/ref)[^1].
+🧟 [this reference](https://oldsite.com/ref)[^1]. See also 🪦 [the dataset](https://gone.example.org/data)[^2].
 
 ---
 
@@ -548,10 +590,12 @@ Check out 👻→⏮️ [this study](https://web.archive.org/web/20230101/https:
 
 [^1]: ⚠️ This link may have changed: Domain was taken over by a parking page
 
+[^2]: 🪦 Lost soul: This link is dead and no archived copy exists. Find another source.
+
 ---
 
 *Fixed by [Necrolink](https://necrolink.dev) on 11/12/2026*
-*1 ghost resurrected, 1 zombie flagged*
+*1 ghost resurrected, 1 zombie flagged, 1 lost soul*
 ```
 
 ### HTML Example
@@ -565,7 +609,11 @@ Check out 👻→⏮️ [this study](https://web.archive.org/web/20230101/https:
   </a> 
   and 
   <a href="https://oldsite.com/ref" data-necrolink-zombie="true">
-    this reference<sup><a href="#zombie-1">[1]</a></sup>
+    this reference<sup><a href="#note-1">[1]</a></sup>
+  </a>.
+  See also
+  <a href="https://gone.example.org/data" data-necrolink-lost="true">
+    <span title="Dead, no archived copy">🪦</span> the dataset<sup><a href="#note-2">[2]</a></sup>
   </a>.
 </p>
 
@@ -573,8 +621,11 @@ Check out 👻→⏮️ [this study](https://web.archive.org/web/20230101/https:
 <section id="necrolink-notes">
   <h2>🪦 Necrolink Notes</h2>
   <ol>
-    <li id="zombie-1">
+    <li id="note-1">
       ⚠️ This link may have changed: Domain was taken over by a parking page
+    </li>
+    <li id="note-2">
+      🪦 Lost soul: This link is dead and no archived copy exists. Find another source.
     </li>
   </ol>
 </section>
@@ -582,7 +633,7 @@ Check out 👻→⏮️ [this study](https://web.archive.org/web/20230101/https:
 <hr>
 <footer id="necrolink-footer">
   <p><em>Fixed by <a href="https://necrolink.dev">Necrolink</a> on 11/12/2026</em></p>
-  <p><em>1 ghost resurrected, 1 zombie flagged</em></p>
+  <p><em>1 ghost resurrected, 1 zombie flagged, 1 lost soul</em></p>
 </footer>
 ```
 

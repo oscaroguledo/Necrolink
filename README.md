@@ -10,9 +10,10 @@ Links rot. Research shows that a large portion of web pages from just 10 years a
 
 ## ✨ What Necrolink Does
 
-Drop in a PDF, document, web page, or Markdown file. Necrolink checks every link and sorts them into three categories:
+Drop in a PDF, document, web page, or Markdown file. Necrolink checks every link and sorts them into four categories:
 
 - **👻 Ghosts (dead links)**: Returns 404 or domain is gone. Necrolink replaces these with archived snapshots from the Internet Archive.
+- **🪦 Lost souls (unrecoverable)**: Dead, and the Internet Archive has no copy. Necrolink lists these separately so you know to find another source.
 - **🧟 Zombies (changed content)**: The link loads, but the content has changed or the domain was hijacked. AI compares the archived and current versions to detect drift.
 - **🕯️ Living (healthy links)**: Nothing to fix.
 
@@ -50,7 +51,7 @@ Visit `http://localhost:3000` to start checking links.
 
 - [X] Project setup and structure
 - [ ] Link extraction from PDF, Markdown, and web pages
-- [ ] Link health checker (ghost/zombie/living classification)
+- [ ] Link health checker (ghost/lost soul/zombie/living classification)
 - [ ] Internet Archive Wayback Machine integration
 - [ ] AI-powered zombie detection
 - [ ] Graveyard results interface

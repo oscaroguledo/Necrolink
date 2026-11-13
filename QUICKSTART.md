@@ -40,7 +40,7 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 1. Upload a Markdown file with some URLs
 2. Wait for the graveyard view to appear
-3. See links classified as ghosts 👻, zombies 🧟, or living 🕯️
+3. See links classified as ghosts 👻, lost souls 🪦, zombies 🧟, or living 🕯️
 4. Click "Resurrect All" to fix broken links
 5. Download your fixed document
 
