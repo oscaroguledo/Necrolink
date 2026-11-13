@@ -1,7 +1,7 @@
 # Spec: Link Extraction from Documents
 
 **Status**: Draft  
-**Created**: 2024-11-12  
+**Created**: 2026-11-12  
 **Owner**: Core Team
 
 ---
