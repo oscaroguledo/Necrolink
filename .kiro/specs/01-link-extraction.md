@@ -4,11 +4,380 @@
 **Created**: 2024-11-12  
 **Owner**: Core Team
 
-## Goal
+---
 
-Extract all URLs from uploaded documents (PDF, Markdown, HTML) with their surrounding context, preserving enough information to reconstruct the document with fixed links later.
+## Requirements
+
+### Must Have
+- Extract all URLs from PDF documents
+- Extract all URLs from Markdown files
+- Extract all URLs from HTML files
+- Capture link text (anchor text) for each URL
+- Record position of each link in the document (page/line/offset)
+- Extract surrounding context (50 chars before/after) for date detection
+- Normalize URLs to canonical form for deduplication
+- Parse citation dates from surrounding context when available
+- Return structured JSON with all extracted data
+- Handle files up to 10MB in size
+
+### Should Have
+- Resolve relative URLs to absolute URLs
+- Deduplicate URLs while preserving all positions
+- Extract link annotations from PDF (not just visible text)
+- Handle internationalized domain names (IDN)
+- Graceful error handling for malformed URLs
+
+### Could Have (Stretch Goals)
+- Extract URLs from DOCX files (using mammoth)
+- Extract URLs from plain text files
+- Support BibTeX files for academic citations
+- OCR for scanned PDFs with embedded links
+
+### Won't Have (Out of Scope)
+- PowerPoint or slide files
+- Image files (unless OCR stretch goal)
+- Video/audio files
+- Encrypted PDFs requiring passwords
+
+---
+
+## Design
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────┐
+│  POST /api/extract                          │
+│  (multipart/form-data upload)               │
+└──────────────┬──────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────┐
+│  Document Type Detection                     │
+│  (by file extension & MIME type)             │
+└──────────────┬───────────────────────────────┘
+               │
+       ┌───────┴───────┬───────────┐
+       │               │           │
+       ▼               ▼           ▼
+   ┌──────┐       ┌────────┐  ┌──────┐
+   │ PDF  │       │  MD    │  │ HTML │
+   │Parser│       │ Parser │  │Parser│
+   └──┬───┘       └───┬────┘  └──┬───┘
+      │               │           │
+      └───────┬───────┴───────────┘
+              │
+              ▼
+    ┌────────────────────┐
+    │ URL Normalization  │
+    │ & Deduplication    │
+    └─────────┬──────────┘
+              │
+              ▼
+    ┌────────────────────┐
+    │ Date Extraction    │
+    │ from Context       │
+    └─────────┬──────────┘
+              │
+              ▼
+    ┌────────────────────┐
+    │ Return JSON with   │
+    │ ExtractedLink[]    │
+    └────────────────────┘
+```
+
+### Data Flow
+
+**Input**: 
+- Multipart form upload with file buffer
+- Document type (pdf/markdown/html)
+- Options (deduplicateUrls, extractDates)
+
+**Output**:
+```typescript
+{
+  success: true,
+  data: {
+    documentId: "abc123",
+    filename: "paper.pdf",
+    links: [
+      {
+        id: "link_1",
+        url: "https://example.com/page",          // normalized
+        originalUrl: "https://example.com/page/", // as found
+        text: "Example Website",
+        position: { page: 3, offset: 1250 },
+        context: "...as described in Example Website (2023)...",
+        citationDate: "2023-01-15T00:00:00Z"
+      }
+    ],
+    stats: {
+      total: 42,
+      unique: 38,
+      withDates: 15
+    }
+  }
+}
+```
+
+### Component Design
+
+#### 1. PDF Extractor (`src/lib/extractors/pdf.ts`)
+- Uses `pdfjs-dist` to parse PDF structure
+- Extracts both visible URLs and link annotations
+- Tracks page numbers for each link
+- Handles malformed PDFs gracefully
+
+#### 2. Markdown Extractor (`src/lib/extractors/markdown.ts`)
+- Uses `unified` + `remark-parse` for AST parsing
+- Visits link nodes to extract URLs
+- Preserves line numbers and offsets
+- Handles reference-style links
+
+#### 3. HTML Extractor (`src/lib/extractors/html.ts`)
+- Uses `cheerio` for DOM parsing
+- Selects all `<a href="...">` elements
+- Extracts surrounding text for context
+- Resolves relative URLs against base
+
+#### 4. URL Normalizer (`src/lib/extractors/url-normalizer.ts`)
+- Lowercase protocol and hostname
+- Remove default ports (80, 443)
+- Remove trailing slashes (except root)
+- Sort query parameters alphabetically
+- Remove tracking parameters (utm_*, fbclid, etc.)
+- Remove URL fragments
+- **Must be idempotent**: `normalize(normalize(x)) === normalize(x)`
+
+#### 5. Date Parser (`src/lib/extractors/date-parser.ts`)
+- Regex patterns for common citation formats
+- Handles "Retrieved", "Accessed", "Published" dates
+- Parses ISO dates (YYYY-MM-DD)
+- Extracts year from parentheses (2023)
+- Returns undefined if no date found
+
+### API Endpoint
+
+**Route**: `POST /api/extract`
+
+**Request Body** (multipart/form-data):
+```typescript
+{
+  file: File,
+  type?: 'pdf' | 'markdown' | 'html',  // auto-detected if omitted
+  options?: {
+    deduplicateUrls?: boolean,
+    extractDates?: boolean
+  }
+}
+```
+
+**Response** (streaming for large files):
+```typescript
+{
+  success: boolean,
+  data?: ExtractionResult,
+  error?: {
+    code: string,
+    message: string
+  }
+}
+```
+
+**Error Codes**:
+- `FILE_TOO_LARGE`: File exceeds 10MB limit
+- `UNSUPPORTED_FORMAT`: File type not supported
+- `PARSE_ERROR`: Failed to parse document
+- `NO_LINKS_FOUND`: Document has no URLs
+
+### Property-Based Testing Strategy
+
+Critical for the hackathon write-up. Test these invariants:
+
+1. **Idempotence**: `normalize(normalize(url)) === normalize(url)`
+2. **Domain preservation**: Normalized URL has same domain
+3. **Path preservation**: Normalized URL has same path (minus trailing slash)
+4. **Tracking removal**: utm_* parameters always removed
+5. **Never crashes**: Normalization handles any string input
+6. **Symmetry**: `isSameUrl(a, b) === isSameUrl(b, a)`
+
+---
+
+## Tasks
+
+### Phase 1: URL Normalization (Foundation)
+- [ ] **Task 1.1**: Implement `normalizeUrl()` function
+  - Input: raw URL string
+  - Output: canonical URL string
+  - Handle: protocol, hostname, port, path, query, fragment
+  - Acceptance: All property tests pass
+
+- [ ] **Task 1.2**: Write property-based tests with fast-check
+  - Test idempotence (1000 runs)
+  - Test domain/path preservation (1000 runs)
+  - Test tracking parameter removal (500 runs)
+  - Test crash resistance on random strings (1000 runs)
+  - **Document every bug found** for write-up
+
+- [ ] **Task 1.3**: Create helper functions
+  - `isAbsoluteUrl(url: string): boolean`
+  - `resolveUrl(relative: string, base: string): string`
+  - `extractDomain(url: string): string | null`
+  - `isSameUrl(url1: string, url2: string): boolean`
+
+### Phase 2: Markdown Extraction
+- [ ] **Task 2.1**: Set up unified + remark-parse
+  - Install dependencies
+  - Configure parser options
+  - Test with simple markdown file
+
+- [ ] **Task 2.2**: Implement `extractLinksFromMarkdown()`
+  - Parse markdown to AST
+  - Visit link nodes
+  - Extract URL, text, position
+  - Extract surrounding context (50 chars)
+  - Handle reference-style links
+
+- [ ] **Task 2.3**: Unit tests for Markdown extractor
+  - Test inline links `[text](url)`
+  - Test reference links `[text][ref]`
+  - Test autolinks `<https://example.com>`
+  - Test position tracking
+  - Test context extraction
+
+### Phase 3: HTML Extraction
+- [ ] **Task 3.1**: Implement `extractLinksFromHTML()`
+  - Parse HTML with cheerio
+  - Select all `<a[href]>` elements
+  - Extract href, text, and position
+  - Resolve relative URLs if base provided
+
+- [ ] **Task 3.2**: Unit tests for HTML extractor
+  - Test absolute URLs
+  - Test relative URLs (with base)
+  - Test anchor text extraction
+  - Test nested elements
+  - Test malformed HTML
+
+### Phase 4: PDF Extraction (Hardest)
+- [ ] **Task 4.1**: Set up pdfjs-dist
+  - Configure worker
+  - Handle canvas/node environment
+  - Test with simple PDF
+
+- [ ] **Task 4.2**: Implement `extractLinksFromPDF()`
+  - Extract text content page by page
+  - Find URLs with regex patterns
+  - Extract link annotations (bonus)
+  - Track page numbers
+  - Extract surrounding context
+
+- [ ] **Task 4.3**: Unit tests with real PDFs
+  - Test academic paper (arXiv PDF)
+  - Test document with annotations
+  - Test multi-page tracking
+  - Test malformed PDFs (error handling)
+
+### Phase 5: Date Extraction
+- [ ] **Task 5.1**: Implement `extractCitationDate()`
+  - Regex for ISO dates (YYYY-MM-DD)
+  - Regex for "Retrieved", "Accessed" formats
+  - Regex for year in parentheses
+  - Return Date or undefined
+
+- [ ] **Task 5.2**: Property tests for date parsing
+  - Never crashes on random strings
+  - Valid dates parse correctly
+  - Invalid dates return undefined
+
+### Phase 6: API Endpoint
+- [ ] **Task 6.1**: Create `/api/extract` route
+  - Handle multipart/form-data
+  - Detect document type
+  - Call appropriate extractor
+  - Return structured JSON
+
+- [ ] **Task 6.2**: Add file validation
+  - Check file size (max 10MB)
+  - Verify MIME type
+  - Return clear error messages
+
+- [ ] **Task 6.3**: Integration tests
+  - Upload real PDF and verify extraction
+  - Upload Markdown and verify extraction
+  - Test error cases (too large, wrong type)
+
+### Phase 7: Polish
+- [ ] **Task 7.1**: Error handling
+  - Graceful failures for malformed files
+  - Clear error messages for users
+  - Logging for debugging
+
+- [ ] **Task 7.2**: Performance optimization
+  - Stream large files
+  - Limit memory usage
+  - Add timeout for slow parses
+
+- [ ] **Task 7.3**: Documentation
+  - Add JSDoc comments
+  - Update API docs
+  - Document bugs found by property tests
+
+---
 
 ## Success Criteria
+
+### Functional
+1. ✅ Extracts every clickable URL from a document
+2. ✅ Captures link text, position, and context
+3. ✅ Handles relative URLs and normalizes them
+4. ✅ Parses citation dates when available
+5. ✅ Returns structured data for link checking
+
+### Quality
+1. ✅ Property-based tests pass with 1000+ runs
+2. ✅ Unit test coverage >80% on extractors
+3. ✅ Handles malformed inputs without crashing
+4. ✅ Clear error messages for users
+
+### Performance
+1. ✅ 50-page PDF extracts in < 5 seconds
+2. ✅ 10KB Markdown extracts in < 500ms
+3. ✅ 100KB HTML extracts in < 1 second
+
+### Documentation
+1. ✅ Every bug found by property tests is documented
+2. ✅ API endpoint has clear examples
+3. ✅ Code has JSDoc comments
+
+---
+
+## Open Questions
+
+- [ ] Should we extract URLs from footnotes/endnotes separately?
+- [ ] How to handle anchor links within the same document?
+- [ ] Should we preserve URL fragments for external links?
+- [ ] What's the max document size we'll accept? (suggest 10MB)
+- [ ] Do we need to handle password-protected PDFs?
+
+---
+
+## Testing Notes
+
+**Keep a dev log of bugs found by property-based tests!**
+
+This is critical for the hackathon write-up. Every time fast-check finds a bug, document:
+1. What input caused the failure
+2. What the expected behavior was
+3. What actually happened
+4. How you fixed it
+
+Examples to watch for:
+- URLs with multiple consecutive slashes
+- IDN (internationalized) domains
+- URLs with only fragments
+- Malformed query parameters
+- Edge cases in trailing slash handling
 
 1. Extract every clickable URL from a document
 2. Capture the link text, position, and surrounding context
