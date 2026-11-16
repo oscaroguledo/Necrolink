@@ -296,7 +296,7 @@ Some text in between.
       });
 
       // Should have at least one duplicate URL
-      const duplicates = Array.from(urlCounts.entries()).filter(([_, count]) => count > 1);
+      const duplicates = Array.from(urlCounts.entries()).filter(([, count]) => count > 1);
       expect(duplicates.length).toBeGreaterThan(0);
     });
 

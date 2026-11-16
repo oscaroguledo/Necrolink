@@ -10,7 +10,6 @@ import fc from 'fast-check';
 import {
   normalizeUrl,
   isAbsoluteUrl,
-  resolveUrl,
   isSameUrl,
   extractDomain,
 } from '@/lib/extractors/url-normalizer';
