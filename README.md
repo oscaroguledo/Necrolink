@@ -76,6 +76,8 @@ Visit `http://localhost:3000` to start checking links.
 
 ## 📚 Documentation
 
+- [API Reference](docs/API.md) - `POST /api/extract` request, response and error codes
+- [Bugs Found by Property Tests](BUGS_FOUND.md) - What fast-check caught and how each bug was fixed
 - [Product Vision](/.kiro/steering/product-vision.md) - The spooky theme and user experience
 - [Technical Conventions](/.kiro/steering/technical-conventions.md) - Code standards and patterns
 - [API Guidelines](/.kiro/steering/api-guidelines.md) - Rate limits and caching for external services
