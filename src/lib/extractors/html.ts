@@ -6,6 +6,7 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import { normalizeUrl, resolveUrl, isAbsoluteUrl } from './url-normalizer';
+import { extractCitationDate } from './date-parser';
 
 /**
  * ExtractedLink interface for HTML link extraction.
@@ -123,6 +124,7 @@ export async function extractLinksFromHTML(
           offset: index, // use element index as offset approximation
         },
         context,
+        citationDate: extractCitationDate(context),
       });
     });
 

@@ -302,4 +302,19 @@ describe('HTML Link Extractor', () => {
       expect(citation?.context).toMatch(/Retrieved 2023-06-15/);
     });
   });
+
+  describe('Citation dates', () => {
+    test('sets citationDate from the surrounding text', async () => {
+      const html = await readFile(join(__dirname, '../fixtures/sample.html'), 'utf-8');
+      const links = await extractLinksFromHTML(html);
+      const citation = links.find((l) => l.url === 'https://journal.example.org/articles/link-rot');
+
+      expect(citation?.citationDate?.toISOString()).toBe('2023-06-15T00:00:00.000Z');
+    });
+
+    test('leaves citationDate undefined when there is no date', async () => {
+      const links = await extractLinksFromHTML('<a href="https://plain.example.com">x</a>');
+      expect(links[0]!.citationDate).toBeUndefined();
+    });
+  });
 });

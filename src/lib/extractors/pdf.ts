@@ -10,6 +10,7 @@
  */
 
 import { normalizeUrl } from './url-normalizer';
+import { extractCitationDate } from './date-parser';
 
 export interface ExtractedLink {
   id: string; // stable unique ID
@@ -136,13 +137,15 @@ export async function extractLinksFromPDF(
       pageLinks.sort((a, b) => a.offset - b.offset);
 
       for (const link of pageLinks) {
+        const context = extractContext(text, link.offset, link.end);
         links.push({
           id: `link_${linkIndex++}`,
           url: link.url,
           originalUrl: link.originalUrl,
           text: link.text,
           position: { page: pageNumber, offset: link.offset },
-          context: extractContext(text, link.offset, link.end),
+          context,
+          citationDate: extractCitationDate(context),
         });
       }
 

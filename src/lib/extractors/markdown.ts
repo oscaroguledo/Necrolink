@@ -9,6 +9,7 @@ import { visit } from 'unist-util-visit';
 import type { Root, Link as LinkNode, Definition, Html, LinkReference } from 'mdast';
 import type { Node } from 'unist';
 import { normalizeUrl } from './url-normalizer';
+import { extractCitationDate } from './date-parser';
 
 export interface ExtractedLink {
   id: string; // stable unique ID
@@ -99,6 +100,7 @@ export async function extractLinksFromMarkdown(
             offset,
           },
           context,
+          citationDate: extractCitationDate(context),
         });
       }
 
@@ -142,6 +144,7 @@ export async function extractLinksFromMarkdown(
               offset,
             },
             context,
+            citationDate: extractCitationDate(context),
           });
         }
       }
@@ -190,6 +193,7 @@ export async function extractLinksFromMarkdown(
             offset,
           },
           context,
+          citationDate: extractCitationDate(context),
         });
       }
     });

@@ -158,4 +158,15 @@ describe('PDF Link Extractor', () => {
       expect(error.code).toBe('PARSE_ERROR');
     });
   });
+
+  describe('Citation dates', () => {
+    test('sets citationDate from the surrounding text', () => {
+      const citation = byUrl('https://journal.example.org/articles/link-rot');
+      expect(citation?.citationDate?.toISOString()).toBe('2023-06-15T00:00:00.000Z');
+    });
+
+    test('leaves citationDate undefined when there is no date', () => {
+      expect(byUrl('https://archive.org/web')?.citationDate).toBeUndefined();
+    });
+  });
 });

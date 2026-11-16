@@ -355,4 +355,19 @@ Some text in between.
       expect(links[0].id).toMatch(/^link_\d+$/);
     });
   });
+
+  describe('Citation dates', () => {
+    test('sets citationDate from the surrounding text', async () => {
+      const content = await readFile(join(__dirname, '../fixtures/sample.md'), 'utf-8');
+      const links = await extractLinksFromMarkdown(content);
+      const paper = links.find((l) => l.url === 'https://arxiv.org/abs/2301.00001');
+
+      expect(paper?.citationDate?.toISOString()).toBe('2023-01-15T00:00:00.000Z');
+    });
+
+    test('leaves citationDate undefined when there is no date', async () => {
+      const links = await extractLinksFromMarkdown('[Plain](https://plain.example.com)');
+      expect(links[0]!.citationDate).toBeUndefined();
+    });
+  });
 });
