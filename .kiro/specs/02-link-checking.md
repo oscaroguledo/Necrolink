@@ -22,6 +22,7 @@
 - Cache CDX lookups for 24 hours
 - Support concurrent checking (max 10 links at once)
 - Stream results back as each link completes (SSE)
+- **Security:** never connect to private, loopback, link-local (incl. 169.254.169.254) or other non-public addresses, checked at connect time and on every redirect (SSRF; links come from uploaded documents)
 
 ### Should Have
 - Try HEAD request first (faster), fall back to GET
@@ -161,7 +162,12 @@ async function classifyLink(link: Link): Promise<CheckResult> {
 
 ### Wayback Machine CDX API
 
-**Endpoint**: `http://web.archive.org/cdx/search/cdx`
+**Endpoint**: `https://web.archive.org/cdx/search/cdx`
+
+> **Verified against the live API (Nov 2026):** results are **oldest first** by
+> default, not newest first. Use `limit=-N` for the newest N, and
+> `sort=closest&closest=<timestamp>` for captures nearest a citation date. A URL
+> that was never archived returns `[]`.
 
 **Query Parameters**:
 ```typescript
@@ -207,6 +213,9 @@ function findClosestSnapshot(
 ): CDXSnapshot | null {
   if (snapshots.length === 0) return null;
   
+  // Sketch only, with two bugs fixed in src/lib/wayback/cdx.ts:
+  // CDX returns OLDEST first, and subtracting YYYYMMDDhhmmss as integers is
+  // not a time difference (see BUGS_FOUND.md #9).
   // If no citation date, return most recent
   if (!citationDate) {
     return snapshots[0]; // CDX returns newest first
@@ -235,6 +244,8 @@ function findClosestSnapshot(
 // src/lib/wayback/rate-limiter.ts
 import pLimit from 'p-limit';
 
+// Sketch only: read-await-write races under concurrency (BUGS_FOUND.md #10).
+// Implemented correctly in src/lib/wayback/rate-limiter.ts.
 export class WaybackRateLimiter {
   private lastRequestTime = 0;
   private readonly minInterval = 200; // 200ms = 5 req/sec
@@ -360,142 +371,142 @@ export async function POST(request: Request) {
 ## Tasks
 
 ### Phase 1: Basic Link Fetching
-- [ ] **Task 1.1**: Implement `fetchWithRetry()`
+- [x] **Task 1.1**: Implement `fetchWithRetry()`
   - Try HEAD request first (faster)
   - Fall back to GET if HEAD fails
   - Follow up to 3 redirects
   - Set 8-second timeout
   - Return: status code, final URL, headers
 
-- [ ] **Task 1.2**: Implement retry logic with exponential backoff
+- [x] **Task 1.2**: Implement retry logic with exponential backoff
   - Retry on 429 (rate limit)
   - Retry on 503 (service unavailable)
   - Retry on network errors
   - Max 3 retries
   - Exponential delay: 1s, 2s, 4s
 
-- [ ] **Task 1.3**: Add proper User-Agent
+- [x] **Task 1.3**: Add proper User-Agent
   - Identify as Necrolink
   - Include contact URL
   - Follow web scraping etiquette
 
 ### Phase 2: Status Classification
-- [ ] **Task 2.1**: Implement `isDeadStatus()`
+- [x] **Task 2.1**: Implement `isDeadStatus()`
   - 404: Not Found
   - 410: Gone
   - 5xx: Server errors (tentative ghost)
   - DNS resolution failures
   - Connection timeouts
 
-- [ ] **Task 2.2**: Implement `isSuspicious()`
+- [x] **Task 2.2**: Implement `isSuspicious()`
   - Redirects to different domain
   - Title tag changed dramatically
   - Status 403 (Forbidden) - may be alive but blocking
   - Redirect chains > 2
 
-- [ ] **Task 2.3**: Unit tests for classification
+- [x] **Task 2.3**: Unit tests for classification
   - Test all status codes
   - Test redirect scenarios
   - Test timeout handling
 
 ### Phase 3: Wayback Machine Integration
-- [ ] **Task 3.1**: Implement CDX API client
+- [x] **Task 3.1**: Implement CDX API client
   - Build query URL with parameters
   - Parse JSON response
   - Handle empty results
   - Handle API errors
 
-- [ ] **Task 3.2**: Implement `findArchivedSnapshot()`
+- [x] **Task 3.2**: Implement `findArchivedSnapshot()`
   - Query CDX for URL
   - Filter for status 200
   - Find closest to citation date
   - Return snapshot metadata, or `null` when no usable snapshot exists
 
-- [ ] **Task 3.2b**: Lost soul classification
+- [x] **Task 3.2b**: Lost soul classification
   - Dead link + `null` snapshot → status `lost`
   - Snapshots that are all non-200 (archived 404/redirect pages) → `lost`
   - Export leaves lost-soul URLs unchanged; results list them under "Lost Souls"
   - Unit tests: never-archived URL, archive with only 404 snapshots
 
-- [ ] **Task 3.3**: Build rate limiter
+- [x] **Task 3.3**: Build rate limiter
   - Enforce 5 req/sec limit
   - Track last request time
   - Add configurable delay
   - Log rate limit hits
 
-- [ ] **Task 3.4**: Integration tests with real Wayback API
+- [x] **Task 3.4**: Integration tests with real Wayback API
   - Test known archived URL
   - Test URL with no snapshots
   - Test rate limiting behavior
   - Test timeout handling
 
 ### Phase 4: Caching Layer
-- [ ] **Task 4.1**: Implement in-memory cache
+- [x] **Task 4.1**: Implement in-memory cache
   - Simple Map-based cache
   - TTL expiration
   - Cache key generation
   - LRU eviction (optional)
 
-- [ ] **Task 4.2**: Add cache to CDX queries
+- [x] **Task 4.2**: Add cache to CDX queries
   - Check cache before API call
   - Store results with 24h TTL
   - Cache misses too (empty results)
 
-- [ ] **Task 4.3**: Add cache to link health checks
+- [x] **Task 4.3**: Add cache to link health checks
   - Check cache before fetching
   - Store results with 1h TTL
   - Invalidate on user request
 
 ### Phase 5: Streaming API Endpoint
-- [ ] **Task 5.1**: Create `/api/check` route
+- [x] **Task 5.1**: Create `/api/check` route
   - Accept array of Link objects
   - Set up Server-Sent Events stream
   - Use p-limit for concurrency
 
-- [ ] **Task 5.2**: Implement streaming logic
+- [x] **Task 5.2**: Implement streaming logic
   - Process links in parallel (max 10)
   - Stream each result as it completes
   - Handle errors gracefully
   - Close stream when done
 
-- [ ] **Task 5.3**: Client-side EventSource
+- [ ] **Task 5.3**: Client-side EventSource (with the results UI; note `EventSource` cannot POST, so read the stream with `fetch()` + `getReader()`)
   - Connect to SSE endpoint
   - Parse incoming results
   - Update UI incrementally
   - Handle connection errors
 
 ### Phase 6: Error Handling & Monitoring
-- [ ] **Task 6.1**: Structured error logging
+- [x] **Task 6.1**: Structured error logging
   - Log all API failures
   - Log rate limit hits
   - Log unexpected status codes
   - Include URL and context
 
-- [ ] **Task 6.2**: Graceful degradation
+- [x] **Task 6.2**: Graceful degradation
   - Continue on individual link failures
   - Return partial results
   - Clear error messages for users
 
-- [ ] **Task 6.3**: Monitoring metrics
+- [ ] **Task 6.3**: Monitoring metrics (partial: `check.finished` logs counts per status and duration; percentiles, Wayback latency and cache hit rate not yet)
   - Track check duration percentiles
   - Track ghost/lost/zombie/living ratio
   - Track Wayback API latency
   - Track cache hit rate
 
 ### Phase 7: Testing & Polish
-- [ ] **Task 7.1**: Unit tests
+- [x] **Task 7.1**: Unit tests
   - Test fetchWithRetry with mocked responses
   - Test rate limiter timing
   - Test cache expiration
   - Test closest snapshot algorithm
 
-- [ ] **Task 7.2**: Integration tests
+- [x] **Task 7.2**: Integration tests
   - Test full check flow end-to-end
   - Test with real dead link
   - Test with real archived link
   - Test streaming response
 
-- [ ] **Task 7.3**: Property-based tests
+- [x] **Task 7.3**: Property-based tests
   - Closest snapshot is always closest
   - A dead link is always exactly one of ghost or lost (ghost ⇔ snapshot exists)
   - Rate limiter never exceeds limit
@@ -593,13 +604,13 @@ data: {"linkId":"link_4","status":"error","error":"Request timeout after 8s"}
 ## Testing Notes
 
 **Integration Testing Checklist**:
-- [ ] Test with known dead link (404)
-- [ ] Test with archived dead link
-- [ ] Test with redirect to different domain
-- [ ] Test with very slow server (timeout)
-- [ ] Test Wayback rate limiting (make 100 requests)
-- [ ] Test cache hit/miss scenarios
-- [ ] Test streaming with 50+ links
+- [x] Test with known dead link (404)
+- [x] Test with archived dead link
+- [x] Test with redirect to different domain (GeoCities → Yahoo, live)
+- [x] Test with very slow server (timeout)
+- [x] Test Wayback rate limiting (property test with simulated bursts instead of 100 real requests)
+- [x] Test cache hit/miss scenarios
+- [x] Test streaming with 50+ links (100 links, incl. client disconnect)
 
 **Monitor These Metrics**:
 - Average check duration
