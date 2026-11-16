@@ -8,9 +8,15 @@ import { randomUUID } from 'crypto';
 import type { DocumentType, ExtractedLink, ExtractionResult } from '@/types/link';
 import { extractLinksFromMarkdown } from './markdown';
 import { extractLinksFromHTML } from './html';
-import { extractLinksFromPDF, PdfExtractionError } from './pdf';
+import {
+  extractLinksFromPDF,
+  PdfExtractionError,
+  type PdfErrorCode,
+  type PdfExtractOptions,
+} from './pdf';
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB (spec 01)
+export const DEFAULT_TIMEOUT_MS = 30_000;
 
 export type ExtractionErrorCode =
   | 'INVALID_REQUEST'
@@ -18,6 +24,7 @@ export type ExtractionErrorCode =
   | 'UNSUPPORTED_FORMAT'
   | 'ENCRYPTED_PDF'
   | 'PARSE_ERROR'
+  | 'PARSE_TIMEOUT'
   | 'NO_LINKS_FOUND';
 
 const STATUS: Record<ExtractionErrorCode, number> = {
@@ -26,6 +33,7 @@ const STATUS: Record<ExtractionErrorCode, number> = {
   UNSUPPORTED_FORMAT: 415,
   ENCRYPTED_PDF: 422,
   PARSE_ERROR: 422,
+  PARSE_TIMEOUT: 422,
   NO_LINKS_FOUND: 422,
 };
 
@@ -58,6 +66,10 @@ export interface ExtractOptions {
   deduplicateUrls?: boolean;
   /** Parse citation dates from context. Default true. */
   extractDates?: boolean;
+  /** Give up after this long (PARSE_TIMEOUT). Default 30 s. */
+  timeoutMs?: number;
+  /** Maximum PDF pages. Default 1000. */
+  maxPdfPages?: number;
 }
 
 const EXTENSIONS: Record<string, DocumentType> = {
@@ -119,7 +131,9 @@ export async function extractLinks(
   }
 
   const type = detectDocumentType(input);
-  let links = await runExtractor(type, input);
+  let links = await withTimeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, (signal) =>
+    runExtractor(type, input, { signal, maxPages: options.maxPdfPages })
+  );
 
   const total = links.length;
   if (total === 0) {
@@ -159,16 +173,45 @@ export async function extractLinks(
   };
 }
 
-async function runExtractor(type: DocumentType, input: ExtractInput): Promise<ExtractedLink[]> {
+const PDF_ERROR_CODES: Record<PdfErrorCode, ExtractionErrorCode> = {
+  ENCRYPTED: 'ENCRYPTED_PDF',
+  PARSE_ERROR: 'PARSE_ERROR',
+  TIMEOUT: 'PARSE_TIMEOUT',
+  TOO_MANY_PAGES: 'FILE_TOO_LARGE',
+};
+
+/**
+ * Run `task` with an abort signal that fires after `ms`. Rejects with
+ * PARSE_TIMEOUT even if the task ignores the signal (Markdown/HTML parsing).
+ */
+async function withTimeout<T>(ms: number, task: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new ExtractionError('PARSE_TIMEOUT', 'This file took too long to read. Try a smaller file.'));
+    }, ms);
+  });
+
+  try {
+    return await Promise.race([task(controller.signal), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runExtractor(
+  type: DocumentType,
+  input: ExtractInput,
+  pdfOptions: PdfExtractOptions
+): Promise<ExtractedLink[]> {
   if (type === 'pdf') {
     try {
-      return await extractLinksFromPDF(input.data);
+      return await extractLinksFromPDF(input.data, pdfOptions);
     } catch (error) {
       if (error instanceof PdfExtractionError) {
-        throw new ExtractionError(
-          error.code === 'ENCRYPTED' ? 'ENCRYPTED_PDF' : 'PARSE_ERROR',
-          error.message
-        );
+        throw new ExtractionError(PDF_ERROR_CODES[error.code], error.message);
       }
       throw new ExtractionError('PARSE_ERROR', 'This PDF could not be read.');
     }

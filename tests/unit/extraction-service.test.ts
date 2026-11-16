@@ -164,6 +164,22 @@ describe('extractLinks', () => {
       await expectError(extractLinks({ data: binary, filename: 'x.md' }), 'PARSE_ERROR', 422);
     });
 
+    test('PARSE_TIMEOUT (422) when parsing takes too long', async () => {
+      await expectError(
+        extractLinks({ data: await fixture('sample.pdf'), filename: 's.pdf' }, { timeoutMs: 0 }),
+        'PARSE_TIMEOUT',
+        422
+      );
+    });
+
+    test('FILE_TOO_LARGE (413) for a PDF over the page limit', async () => {
+      await expectError(
+        extractLinks({ data: await fixture('sample.pdf'), filename: 's.pdf' }, { maxPdfPages: 1 }),
+        'FILE_TOO_LARGE',
+        413
+      );
+    });
+
     test('NO_LINKS_FOUND (422) when the document has no links', async () => {
       await expectError(
         extractLinks({ data: text('# Just a heading'), filename: 'x.md' }),

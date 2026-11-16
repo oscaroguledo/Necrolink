@@ -151,6 +151,36 @@ describe('PDF Link Extractor', () => {
       expect(error.code).toBe('PARSE_ERROR');
     });
 
+    test('an already-aborted signal throws TIMEOUT', async () => {
+      const controller = new AbortController();
+      controller.abort();
+      const error = await extractLinksFromPDF(await fixture('sample.pdf'), {
+        signal: controller.signal,
+      }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PdfExtractionError);
+      expect((error as PdfExtractionError).code).toBe('TIMEOUT');
+    });
+
+    test('aborting during the parse throws TIMEOUT', async () => {
+      const controller = new AbortController();
+      const pending = extractLinksFromPDF(await fixture('sample.pdf'), {
+        signal: controller.signal,
+      }).catch((e: unknown) => e);
+      controller.abort();
+      const error = await pending;
+      expect(error).toBeInstanceOf(PdfExtractionError);
+      expect((error as PdfExtractionError).code).toBe('TIMEOUT');
+    });
+
+    test('more pages than maxPages throws TOO_MANY_PAGES', async () => {
+      const error = await extractLinksFromPDF(await fixture('sample.pdf'), { maxPages: 2 }).catch(
+        (e: unknown) => e
+      );
+      expect(error).toBeInstanceOf(PdfExtractionError);
+      expect((error as PdfExtractionError).code).toBe('TOO_MANY_PAGES');
+      expect((error as PdfExtractionError).message).toMatch(/3 pages/);
+    });
+
     test('rejects random bytes with code PARSE_ERROR', async () => {
       const junk = new TextEncoder().encode('just some text, not a pdf');
       const error = await extractLinksFromPDF(junk).catch((e) => e);

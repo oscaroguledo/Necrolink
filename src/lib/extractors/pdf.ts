@@ -19,7 +19,16 @@ export interface ExtractedLink extends BaseExtractedLink {
   position: { page: number; offset: number };
 }
 
-export type PdfErrorCode = 'ENCRYPTED' | 'PARSE_ERROR';
+export type PdfErrorCode = 'ENCRYPTED' | 'PARSE_ERROR' | 'TIMEOUT' | 'TOO_MANY_PAGES';
+
+export interface PdfExtractOptions {
+  /** Abort the parse (e.g. on timeout); throws PdfExtractionError('TIMEOUT'). */
+  signal?: AbortSignal;
+  /** Refuse PDFs with more pages than this, to bound memory and time. Default 1000. */
+  maxPages?: number;
+}
+
+export const DEFAULT_MAX_PDF_PAGES = 1000;
 
 /** Thrown when a PDF cannot be read, so the API can return a clear error code. */
 export class PdfExtractionError extends Error {
@@ -74,7 +83,8 @@ interface PdfAnnotation {
  *
  * @param data - PDF file contents
  * @returns Links in document order, with page numbers
- * @throws PdfExtractionError with code ENCRYPTED or PARSE_ERROR
+ * @param options - Abort signal and page limit
+ * @throws PdfExtractionError with code ENCRYPTED, PARSE_ERROR, TIMEOUT or TOO_MANY_PAGES
  *
  * @example
  * ```typescript
@@ -84,8 +94,14 @@ interface PdfAnnotation {
  * ```
  */
 export async function extractLinksFromPDF(
-  data: Uint8Array | ArrayBuffer
+  data: Uint8Array | ArrayBuffer,
+  options: PdfExtractOptions = {}
 ): Promise<ExtractedLink[]> {
+  const { signal, maxPages = DEFAULT_MAX_PDF_PAGES } = options;
+  const timedOut = () =>
+    new PdfExtractionError('TIMEOUT', 'This PDF took too long to read. Try a smaller file.');
+  if (signal?.aborted) throw timedOut();
+
   // pdf.js detaches the buffer it is given, so pass a copy
   const bytes = new Uint8Array(data instanceof ArrayBuffer ? data.slice(0) : data.slice());
   if (bytes.length === 0) {
@@ -95,8 +111,7 @@ export async function extractLinksFromPDF(
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
 
   let doc;
-  try {
-    doc = await pdfjs.getDocument({
+  const loadingTask = pdfjs.getDocument({
       data: bytes,
       // Security: pdf.js < 4.2.67 can run attacker-controlled JS via font
       // compilation (CVE-2024-4367). Disabling eval closes that hole.
@@ -104,8 +119,16 @@ export async function extractLinksFromPDF(
       disableFontFace: true,
       useSystemFonts: false,
       verbosity: 0,
-    }).promise;
+  });
+  // Destroying the loading task stops pdf.js and rejects every pending promise
+  const onAbort = () => void loadingTask.destroy();
+  signal?.addEventListener('abort', onAbort, { once: true });
+
+  try {
+    doc = await loadingTask.promise;
   } catch (error) {
+    signal?.removeEventListener('abort', onAbort);
+    if (signal?.aborted) throw timedOut();
     const name = (error as { name?: string })?.name;
     if (name === 'PasswordException') {
       throw new PdfExtractionError(
@@ -117,10 +140,22 @@ export async function extractLinksFromPDF(
   }
 
   try {
+    if (doc.numPages > maxPages) {
+      throw new PdfExtractionError(
+        'TOO_MANY_PAGES',
+        `This PDF has ${doc.numPages} pages; the limit is ${maxPages}.`
+      );
+    }
+
     const links: ExtractedLink[] = [];
     let linkIndex = 1;
 
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+      // pdf.js resolves through promise callbacks only, which Node runs before
+      // timers and other requests. Yield once per page so a timeout can fire
+      // and other requests are served while a long PDF is parsed.
+      await new Promise((resolve) => setImmediate(resolve));
+      if (signal?.aborted) throw timedOut();
       const page = await doc.getPage(pageNumber);
       const textContent = await page.getTextContent();
       const annotations = (await page.getAnnotations()) as PdfAnnotation[];
@@ -149,9 +184,11 @@ export async function extractLinksFromPDF(
     return links;
   } catch (error) {
     if (error instanceof PdfExtractionError) throw error;
+    if (signal?.aborted) throw timedOut();
     throw new PdfExtractionError('PARSE_ERROR', 'This PDF could not be fully read.');
   } finally {
-    await doc.destroy();
+    signal?.removeEventListener('abort', onAbort);
+    await loadingTask.destroy();
   }
 }
 
