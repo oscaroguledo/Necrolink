@@ -189,6 +189,12 @@
 - `UNSUPPORTED_FORMAT`: File type not supported
 - `PARSE_ERROR`: Failed to parse document
 - `NO_LINKS_FOUND`: Document has no URLs
+- `INVALID_REQUEST`: Missing file, bad `type` / `options` / `baseUrl`, or not multipart (400)
+- `ENCRYPTED_PDF`: PDF is password-protected (422)
+
+HTTP status: FILE_TOO_LARGE 413, UNSUPPORTED_FORMAT 415, PARSE_ERROR /
+NO_LINKS_FOUND / ENCRYPTED_PDF 422. Implemented in `src/app/api/extract/route.ts`
+and `src/lib/extractors/index.ts`.
 
 ### Property-Based Testing Strategy
 
@@ -291,18 +297,18 @@ Critical for the hackathon write-up. Test these invariants:
   - Invalid dates return undefined
 
 ### Phase 6: API Endpoint
-- [ ] **Task 6.1**: Create `/api/extract` route
+- [x] **Task 6.1**: Create `/api/extract` route
   - Handle multipart/form-data
   - Detect document type
   - Call appropriate extractor
   - Return structured JSON
 
-- [ ] **Task 6.2**: Add file validation
+- [x] **Task 6.2**: Add file validation
   - Check file size (max 10MB)
   - Verify MIME type
   - Return clear error messages
 
-- [ ] **Task 6.3**: Integration tests
+- [x] **Task 6.3**: Integration tests
   - Upload real PDF and verify extraction
   - Upload Markdown and verify extraction
   - Test error cases (too large, wrong type)

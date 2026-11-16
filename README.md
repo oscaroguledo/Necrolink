@@ -50,7 +50,7 @@ Visit `http://localhost:3000` to start checking links.
 ### MVP (Must-Have)
 
 - [X] Project setup and structure
-- [ ] Link extraction from PDF, Markdown, and web pages
+- [x] Link extraction from PDF, Markdown, and web pages (`POST /api/extract`)
 - [ ] Link health checker (ghost/lost soul/zombie/living classification)
 - [ ] Internet Archive Wayback Machine integration
 - [ ] AI-powered zombie detection
