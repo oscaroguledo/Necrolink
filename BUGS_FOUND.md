@@ -353,6 +353,34 @@ Property-based testing exercises all combinations automatically.
 
 ---
 
+## Bug #8: Impossible Dates Silently Roll Over (Date Parser)
+
+**Severity:** High (wrong Wayback snapshot for a citation)
+
+### Root Cause
+The citation date sketch in spec 01 builds dates with `new Date(...)`. JavaScript
+does not reject impossible days; it rolls them over:
+```typescript
+new Date(Date.UTC(1990, 3, 31)); // "April 31" → 1990-05-01
+```
+A typo like "Retrieved 2023-02-30" would quietly become March 2, and Necrolink
+would resurrect the link from the wrong day's snapshot.
+
+### How Property Tests Caught It
+`tests/property/date-parser.test.ts` generates impossible calendar days (day 29–31
+in months too short for them) and asserts the parser returns `undefined`. With the
+rollover check removed, fast-check fails immediately and shrinks to:
+```
+Counterexample: [{"year":1990,"month":4,"day":31}]
+```
+
+### The Fix
+`validDate()` in `src/lib/extractors/date-parser.ts` builds the date in UTC, then
+rejects it unless the year, month and day read back unchanged. The same function
+also rejects years before 1990 and future dates.
+
+---
+
 ## Summary: The Value of Property-Based Testing
 
 ### Bugs Caught
@@ -387,7 +415,7 @@ Property-based testing shifts focus from "did I test the right examples?" to "do
 
 ## Hackathon Value
 
-For the Kiro AI + AWS Amplify Hackathon write-up, this demonstrates:
+For the Kiroween 2026 hackathon write-up, this demonstrates:
 
 1. **Sophisticated testing practices:** Using `fast-check` for property-based testing
 2. **Real bugs found:** Not just theoretical—actual issues that would cause production problems
