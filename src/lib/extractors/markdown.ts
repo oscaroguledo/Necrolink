@@ -6,7 +6,8 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import { visit } from 'unist-util-visit';
-import type { Root, Link as LinkNode, Definition } from 'mdast';
+import type { Root, Link as LinkNode, Definition, Html, LinkReference } from 'mdast';
+import type { Node } from 'unist';
 import { normalizeUrl } from './url-normalizer';
 
 export interface ExtractedLink {
@@ -103,11 +104,14 @@ export async function extractLinksFromMarkdown(
 
       // Handle HTML autolinks like <https://example.com>
       if (node.type === 'html') {
-        const htmlContent = (node as any).value as string;
+        const htmlContent = (node as Html).value;
         const autolinkMatch = htmlContent.match(/^<(https?:\/\/[^>]+)>$/);
 
         if (autolinkMatch) {
           const url = autolinkMatch[1];
+          if (!url) {
+            return;
+          }
 
           // Skip fragments and mailto
           if (url.startsWith('#') || url.startsWith('mailto:')) {
@@ -144,7 +148,7 @@ export async function extractLinksFromMarkdown(
 
       // Handle linkReference nodes (reference-style links)
       if (node.type === 'linkReference') {
-        const linkRef = node as any;
+        const linkRef = node as LinkReference;
         const identifier = linkRef.identifier?.toLowerCase();
 
         if (!identifier || !definitions.has(identifier)) {
@@ -200,15 +204,15 @@ export async function extractLinksFromMarkdown(
 /**
  * Extract text content from a node recursively
  */
-function extractTextFromNode(node: any): string {
+function extractTextFromNode(node: Node | undefined): string {
   if (!node) return '';
 
-  if (node.type === 'text') {
-    return node.value || '';
+  if (node.type === 'text' && 'value' in node) {
+    return String(node.value ?? '');
   }
 
-  if (node.children && Array.isArray(node.children)) {
-    return node.children.map(extractTextFromNode).join('');
+  if ('children' in node && Array.isArray(node.children)) {
+    return (node.children as Node[]).map(extractTextFromNode).join('');
   }
 
   return '';

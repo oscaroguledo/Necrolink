@@ -122,7 +122,7 @@ export function normalizeUrl(
     }
     
     return result;
-  } catch (error) {
+  } catch {
     // Fix Bug 5: Return consistently normalized form even on error
     // This ensures idempotence for malformed URLs
     let fallback = url.trim();
