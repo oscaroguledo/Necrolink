@@ -17,7 +17,7 @@ const fixture = async (name: string) =>
   new Uint8Array(await readFile(join(__dirname, '../fixtures', name)));
 const text = (s: string) => new TextEncoder().encode(s);
 const expectError = async (promise: Promise<unknown>, code: string, status: number) => {
-  const error = await promise.catch((e) => e);
+  const error = (await promise.catch((e: unknown) => e)) as ExtractionError;
   expect(error).toBeInstanceOf(ExtractionError);
   expect(error.code).toBe(code);
   expect(error.status).toBe(status);
