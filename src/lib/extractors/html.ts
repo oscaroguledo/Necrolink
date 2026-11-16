@@ -8,22 +8,10 @@ import type { Element } from 'domhandler';
 import { normalizeUrl, resolveUrl, isAbsoluteUrl } from './url-normalizer';
 import { extractCitationDate } from './date-parser';
 
-/**
- * ExtractedLink interface for HTML link extraction.
- * This matches the interface defined in markdown.ts for consistency.
- */
-export interface ExtractedLink {
-  id: string; // stable unique ID
-  url: string; // normalized URL
-  originalUrl: string; // URL as found in HTML
-  text: string; // link anchor text
-  position: {
-    line?: number; // not available in cheerio (DOM-based)
-    offset: number; // element index as approximation
-  };
-  context: string; // surrounding text
-  citationDate?: Date;
-}
+import type { ExtractedLink } from '@/types/link';
+
+// position.offset is the element index (cheerio has no character offsets)
+export type { ExtractedLink };
 
 /**
  * Extract all HTTP/HTTPS links from HTML content

@@ -10,6 +10,22 @@ export interface Position {
   offset: number; // character offset in source
 }
 
+/**
+ * A link as found in a document, before its health is checked.
+ * Produced by every extractor (Markdown, HTML, PDF).
+ */
+export interface ExtractedLink {
+  id: string; // unique within one extraction (link_1, link_2, ...)
+  url: string; // normalized URL
+  originalUrl: string; // URL as found in the document
+  text: string; // anchor text (or the URL itself for bare URLs)
+  position: Position;
+  context: string; // ~50 chars either side, used for citation dates
+  citationDate?: Date;
+}
+
+export type DocumentType = 'pdf' | 'markdown' | 'html';
+
 export interface Link {
   id: string; // unique identifier
   url: string; // normalized URL
@@ -55,9 +71,12 @@ export interface DocumentMetadata {
   linkCount: number;
 }
 
+/** Response body of POST /api/extract (spec 01, API Design). */
 export interface ExtractionResult {
-  document: DocumentMetadata;
-  links: Link[];
+  documentId: string;
+  filename: string;
+  type: DocumentType;
+  links: ExtractedLink[];
   stats: {
     total: number;
     unique: number;

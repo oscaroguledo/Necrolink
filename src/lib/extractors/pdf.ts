@@ -12,17 +12,11 @@
 import { normalizeUrl } from './url-normalizer';
 import { extractCitationDate } from './date-parser';
 
-export interface ExtractedLink {
-  id: string; // stable unique ID
-  url: string; // normalized URL
-  originalUrl: string; // URL as found in the PDF
-  text: string; // anchor text (or the URL itself for plain-text URLs)
-  position: {
-    page: number; // 1-based page number
-    offset: number; // character offset within the page's text
-  };
-  context: string; // ~50 chars before and after the link
-  citationDate?: Date;
+import type { ExtractedLink as BaseExtractedLink } from '@/types/link';
+
+/** PDF links always carry a 1-based page number; offset is within that page's text. */
+export interface ExtractedLink extends BaseExtractedLink {
+  position: { page: number; offset: number };
 }
 
 export type PdfErrorCode = 'ENCRYPTED' | 'PARSE_ERROR';

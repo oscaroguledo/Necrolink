@@ -11,18 +11,9 @@ import type { Node } from 'unist';
 import { normalizeUrl } from './url-normalizer';
 import { extractCitationDate } from './date-parser';
 
-export interface ExtractedLink {
-  id: string; // stable unique ID
-  url: string; // normalized URL
-  originalUrl: string; // URL as found in markdown
-  text: string; // link anchor text
-  position: {
-    line?: number; // 1-based line number
-    offset: number; // character offset in source
-  };
-  context: string; // 50 chars of surrounding text
-  citationDate?: Date;
-}
+import type { ExtractedLink } from '@/types/link';
+
+export type { ExtractedLink };
 
 /**
  * Extract all links from markdown content
