@@ -18,6 +18,7 @@ import {
   type ExtractOptions,
 } from '@/lib/extractors';
 import type { DocumentType } from '@/types/link';
+import { log, errorFields } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,10 @@ const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 const DOCUMENT_TYPES: readonly DocumentType[] = ['pdf', 'markdown', 'html'];
 
 export async function POST(request: Request): Promise<Response> {
+  const startedAt = performance.now();
+  const elapsedMs = () => Math.round(performance.now() - startedAt);
+  let bytes: number | undefined;
+
   try {
     // Reject oversized uploads before reading the body into memory
     const declaredLength = Number(request.headers.get('content-length') ?? 0);
@@ -52,6 +57,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!(file instanceof Blob)) {
       throw new ExtractionError('INVALID_REQUEST', 'Missing "file" field.');
     }
+    bytes = file.size;
     if (file.size > MAX_FILE_BYTES) {
       throw new ExtractionError('FILE_TOO_LARGE', 'File is larger than the 10 MB limit.');
     }
@@ -67,15 +73,24 @@ export async function POST(request: Request): Promise<Response> {
       parseOptions(form.get('options'))
     );
 
+    log.info('extract.success', {
+      type: result.type,
+      bytes,
+      links: result.stats.total,
+      uniqueLinks: result.stats.unique,
+      withDates: result.stats.withDates,
+      ms: elapsedMs(),
+    });
     return Response.json({ success: true, data: result });
   } catch (error) {
     if (error instanceof ExtractionError) {
+      log.warn('extract.rejected', { code: error.code, status: error.status, bytes, ms: elapsedMs() });
       return Response.json(
         { success: false, error: { code: error.code, message: error.message } },
         { status: error.status }
       );
     }
-    console.error('[api/extract] unexpected error:', error);
+    log.error('extract.failed', { bytes, ms: elapsedMs(), ...errorFields(error) });
     return Response.json(
       {
         success: false,
