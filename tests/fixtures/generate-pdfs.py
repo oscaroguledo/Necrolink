@@ -11,6 +11,10 @@ Produces:
                                     punctuation, a mailto link, a page with no links
     tests/fixtures/encrypted.pdf  - password-protected PDF (should be rejected)
     tests/fixtures/corrupt.pdf    - not a real PDF (should be rejected)
+    tests/fixtures/large-50-pages.pdf - 50-page reference list for the
+                                    performance test (spec 01: < 5 seconds)
+
+Output is byte-for-byte reproducible (reportlab invariant mode).
 """
 
 from pathlib import Path
@@ -32,7 +36,7 @@ def link_text(c: canvas.Canvas, x: float, y: float, text: str, url: str) -> None
 
 
 def build_sample() -> None:
-    c = canvas.Canvas(str(HERE / "sample.pdf"), pagesize=letter)
+    c = canvas.Canvas(str(HERE / "sample.pdf"), pagesize=letter, invariant=1)
     c.setFont(FONT, SIZE)
 
     # Page 1: annotation links (anchor text differs from URL) + one plain-text URL
@@ -66,10 +70,30 @@ def build_sample() -> None:
 
 def build_encrypted() -> None:
     enc = StandardEncryption("secret", ownerPassword="owner-secret", canPrint=0)
-    c = canvas.Canvas(str(HERE / "encrypted.pdf"), pagesize=letter, encrypt=enc)
+    c = canvas.Canvas(str(HERE / "encrypted.pdf"), pagesize=letter, encrypt=enc, invariant=1)
     c.setFont(FONT, SIZE)
     c.drawString(72, 720, "Secret: https://hidden.example.com")
     c.showPage()
+    c.save()
+
+
+def build_large(pages: int = 50) -> None:
+    """Academic-style reference list: 6 links per page (3 clickable, 3 plain text)."""
+    c = canvas.Canvas(str(HERE / "large-50-pages.pdf"), pagesize=letter, invariant=1)
+    for page in range(1, pages + 1):
+        c.setFont(FONT, SIZE)
+        c.drawString(72, 740, f"References (page {page} of {pages})")
+        y = 710
+        for i in range(3):
+            n = (page - 1) * 6 + i + 1
+            c.drawString(72, y, f"[{n}] Author {n} ({2000 + n % 24}). Clickable source {n}.")
+            link_text(c, 72, y - 15, f"Source {n}", f"https://clickable.example.com/paper/{n}")
+            y -= 45
+        for i in range(3, 6):
+            n = (page - 1) * 6 + i + 1
+            c.drawString(72, y, f"[{n}] Author {n}. https://plain.example.org/ref/{n}. Retrieved 2023-06-{(n % 28) + 1:02d}.")
+            y -= 30
+        c.showPage()
     c.save()
 
 
@@ -81,4 +105,5 @@ if __name__ == "__main__":
     build_sample()
     build_encrypted()
     build_corrupt()
-    print("Wrote sample.pdf, encrypted.pdf, corrupt.pdf to", HERE)
+    build_large()
+    print("Wrote sample.pdf, encrypted.pdf, corrupt.pdf, large-50-pages.pdf to", HERE)
