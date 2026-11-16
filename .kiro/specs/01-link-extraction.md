@@ -206,39 +206,39 @@ Critical for the hackathon write-up. Test these invariants:
 ## Tasks
 
 ### Phase 1: URL Normalization (Foundation)
-- [ ] **Task 1.1**: Implement `normalizeUrl()` function
+- [x] **Task 1.1**: Implement `normalizeUrl()` function
   - Input: raw URL string
   - Output: canonical URL string
   - Handle: protocol, hostname, port, path, query, fragment
   - Acceptance: All property tests pass
 
-- [ ] **Task 1.2**: Write property-based tests with fast-check
+- [x] **Task 1.2**: Write property-based tests with fast-check
   - Test idempotence (1000 runs)
   - Test domain/path preservation (1000 runs)
   - Test tracking parameter removal (500 runs)
   - Test crash resistance on random strings (1000 runs)
   - **Document every bug found** for write-up
 
-- [ ] **Task 1.3**: Create helper functions
+- [x] **Task 1.3**: Create helper functions
   - `isAbsoluteUrl(url: string): boolean`
   - `resolveUrl(relative: string, base: string): string`
   - `extractDomain(url: string): string | null`
   - `isSameUrl(url1: string, url2: string): boolean`
 
 ### Phase 2: Markdown Extraction
-- [ ] **Task 2.1**: Set up unified + remark-parse
+- [x] **Task 2.1**: Set up unified + remark-parse
   - Install dependencies
   - Configure parser options
   - Test with simple markdown file
 
-- [ ] **Task 2.2**: Implement `extractLinksFromMarkdown()`
+- [x] **Task 2.2**: Implement `extractLinksFromMarkdown()`
   - Parse markdown to AST
   - Visit link nodes
   - Extract URL, text, position
   - Extract surrounding context (50 chars)
   - Handle reference-style links
 
-- [ ] **Task 2.3**: Unit tests for Markdown extractor
+- [x] **Task 2.3**: Unit tests for Markdown extractor
   - Test inline links `[text](url)`
   - Test reference links `[text][ref]`
   - Test autolinks `<https://example.com>`
@@ -246,13 +246,13 @@ Critical for the hackathon write-up. Test these invariants:
   - Test context extraction
 
 ### Phase 3: HTML Extraction
-- [ ] **Task 3.1**: Implement `extractLinksFromHTML()`
+- [x] **Task 3.1**: Implement `extractLinksFromHTML()`
   - Parse HTML with cheerio
   - Select all `<a[href]>` elements
   - Extract href, text, and position
   - Resolve relative URLs if base provided
 
-- [ ] **Task 3.2**: Unit tests for HTML extractor
+- [x] **Task 3.2**: Unit tests for HTML extractor
   - Test absolute URLs
   - Test relative URLs (with base)
   - Test anchor text extraction
@@ -260,20 +260,20 @@ Critical for the hackathon write-up. Test these invariants:
   - Test malformed HTML
 
 ### Phase 4: PDF Extraction (Hardest)
-- [ ] **Task 4.1**: Set up pdfjs-dist
+- [x] **Task 4.1**: Set up pdfjs-dist
   - Configure worker
   - Handle canvas/node environment
   - Test with simple PDF
 
-- [ ] **Task 4.2**: Implement `extractLinksFromPDF()`
+- [x] **Task 4.2**: Implement `extractLinksFromPDF()`
   - Extract text content page by page
   - Find URLs with regex patterns
   - Extract link annotations (bonus)
   - Track page numbers
   - Extract surrounding context
 
-- [ ] **Task 4.3**: Unit tests with real PDFs
-  - Test academic paper (arXiv PDF)
+- [x] **Task 4.3**: Unit tests with real PDFs
+  - Test academic paper (arXiv PDF): deferred; generated fixtures in tests/fixtures/generate-pdfs.py cover annotations, plain-text URLs, multi-page, encrypted and corrupt files
   - Test document with annotations
   - Test multi-page tracking
   - Test malformed PDFs (error handling)
@@ -420,7 +420,8 @@ interface ExtractedLink {
 export async function extractLinksFromPDF(
   buffer: Buffer
 ): Promise<ExtractedLink[]> {
-  const data = await pdf(buffer);
+  // Implemented in src/lib/extractors/pdf.ts with pdfjs-dist
+  // (link annotations + plain-text URLs; eval disabled for CVE-2024-4367)
   
   // Strategy:
   // 1. Parse the PDF text content
@@ -721,7 +722,7 @@ describe('PDF extraction', () => {
 
 ```json
 {
-  "pdf-parse": "^1.1.1",
+  "pdfjs-dist": "^3.11.0",
   "unified": "^11.0.0",
   "remark-parse": "^11.0.0",
   "unist-util-visit": "^5.0.0",
