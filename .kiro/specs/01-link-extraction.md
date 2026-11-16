@@ -314,17 +314,17 @@ Critical for the hackathon write-up. Test these invariants:
   - Test error cases (too large, wrong type)
 
 ### Phase 7: Polish
-- [ ] **Task 7.1**: Error handling
+- [x] **Task 7.1**: Error handling
   - Graceful failures for malformed files
   - Clear error messages for users
   - Logging for debugging
 
-- [ ] **Task 7.2**: Performance optimization
-  - Stream large files
-  - Limit memory usage
-  - Add timeout for slow parses
+- [x] **Task 7.2**: Performance optimization
+  - Stream large files: not needed under the 10 MB cap; oversized uploads are rejected from Content-Length before the body is read
+  - Limit memory usage: 10 MB cap, 1000-page PDF cap
+  - Add timeout for slow parses: 30 s (PARSE_TIMEOUT); PDF parsing yields per page so the timeout can fire
 
-- [ ] **Task 7.3**: Documentation
+- [x] **Task 7.3**: Documentation
   - Add JSDoc comments
   - Update API docs
   - Document bugs found by property tests
