@@ -8,7 +8,8 @@
  * lookup, on every redirect hop, so DNS rebinding and redirects to internal
  * hosts are blocked too.
  *
- * Only status and headers are read; response bodies are never downloaded.
+ * safeFetch() reads only status and headers. fetchPage() also downloads the
+ * body of HTML responses, capped at 2 MB, for content comparison (spec 03).
  */
 
 import http from 'node:http';
@@ -165,13 +166,35 @@ interface RawResponse {
   status: number;
   location?: string;
   retryAfter?: string;
+  contentType?: string;
+  body?: string;
+  truncated?: boolean;
+}
+
+interface BodyOptions {
+  /** Download the body (2xx HTML responses only), up to this many bytes. */
+  maxBodyBytes?: number;
+}
+
+const HTML_TYPE = /^\s*(text\/html|application\/xhtml\+xml)\b/i;
+
+function decodeBody(chunks: Buffer[], contentType: string | undefined): string {
+  const charset = /charset=["']?([\w-]+)/i.exec(contentType ?? '')?.[1] ?? 'utf-8';
+  let decoder: TextDecoder;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch {
+    decoder = new TextDecoder('utf-8');
+  }
+  return decoder.decode(Buffer.concat(chunks));
 }
 
 function requestOnce(
   url: URL,
   method: 'HEAD' | 'GET',
   opts: Required<Pick<SafeFetchOptions, 'timeoutMs' | 'isAllowedAddress' | 'resolve'>> &
-    Pick<SafeFetchOptions, 'signal'>
+    Pick<SafeFetchOptions, 'signal'> &
+    BodyOptions
 ): Promise<RawResponse> {
   return new Promise((resolvePromise, reject) => {
     // Literal IP hosts skip DNS lookup, so check them here
@@ -197,13 +220,55 @@ function requestOnce(
     }, opts.timeoutMs);
 
     req.on('response', (res) => {
-      clearTimeout(timer);
+      const status = res.statusCode ?? 0;
       const location = res.headers.location;
       const retryAfter = res.headers['retry-after'];
-      // Only the status matters; never download the body
-      res.destroy();
-      req.destroy();
-      resolvePromise({ status: res.statusCode ?? 0, location, retryAfter });
+      const contentType = res.headers['content-type'];
+      const wantBody =
+        opts.maxBodyBytes !== undefined &&
+        method === 'GET' &&
+        status >= 200 &&
+        status < 300 &&
+        HTML_TYPE.test(contentType ?? '');
+
+      if (!wantBody) {
+        clearTimeout(timer);
+        res.destroy();
+        req.destroy();
+        resolvePromise({ status, location, retryAfter, contentType });
+        return;
+      }
+
+      // Download the HTML, stopping at the size cap
+      const chunks: Buffer[] = [];
+      let size = 0;
+      let done = false;
+      const finish = (truncated: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        res.destroy();
+        req.destroy();
+        resolvePromise({ status, location, retryAfter, contentType, body: decodeBody(chunks, contentType), truncated });
+      };
+      res.on('data', (chunk: Buffer) => {
+        const room = opts.maxBodyBytes! - size;
+        if (chunk.length >= room) {
+          chunks.push(chunk.subarray(0, room));
+          size += room;
+          finish(true);
+        } else {
+          chunks.push(chunk);
+          size += chunk.length;
+        }
+      });
+      res.on('end', () => finish(false));
+      res.on('error', (err) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(err);
+      });
     });
     req.on('error', (err) => {
       clearTimeout(timer);
@@ -299,9 +364,68 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions = {}):
 }
 
 function strip(result: FetchResult & { retryAfter?: string }): FetchResult {
-  const { retryAfter: _retryAfter, ...rest } = result;
-  void _retryAfter;
-  return rest;
+  return {
+    finalUrl: result.finalUrl,
+    redirects: result.redirects,
+    method: result.method,
+    attempts: result.attempts,
+    ...(result.status !== undefined ? { status: result.status } : {}),
+    ...(result.error ? { error: result.error, errorMessage: result.errorMessage } : {}),
+  };
+}
+
+export interface PageResult extends FetchResult {
+  contentType?: string;
+  /** HTML of a 2xx HTML response; undefined for other responses. */
+  html?: string;
+  /** True if the body was cut off at the size cap. */
+  truncated?: boolean;
+}
+
+export const MAX_PAGE_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Download a page's HTML (GET, same SSRF protection, redirects, timeout and
+ * retries as safeFetch). Non-HTML responses return status only.
+ */
+export async function fetchPage(
+  rawUrl: string,
+  options: SafeFetchOptions & { maxBytes?: number } = {}
+): Promise<PageResult> {
+  const opts = {
+    timeoutMs: options.timeoutMs ?? 8000,
+    maxRedirects: options.maxRedirects ?? 3,
+    maxRetries: options.maxRetries ?? 2,
+    retryBaseMs: options.retryBaseMs ?? 1000,
+    isAllowedAddress: options.isAllowedAddress ?? isPublicAddress,
+    resolve: options.resolve ?? defaultResolve,
+    sleep: options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))),
+    signal: options.signal,
+    maxBodyBytes: options.maxBytes ?? MAX_PAGE_BYTES,
+  };
+
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('not http(s)');
+  } catch {
+    return { finalUrl: rawUrl, redirects: [], method: 'GET', attempts: 0, error: 'INVALID_URL', errorMessage: 'Not a valid http(s) URL' };
+  }
+
+  for (let retry = 0, attempts = 1; ; retry++, attempts++) {
+    const result = await followRedirects(url, 'GET', opts);
+    const retriable =
+      (result.status !== undefined && RETRY_STATUSES.has(result.status)) ||
+      (result.error !== undefined && RETRY_ERRORS.has(result.error));
+    if (!retriable || retry >= opts.maxRetries || opts.signal?.aborted) {
+      return {
+        ...strip({ ...result, method: 'GET', attempts }),
+        ...(result.contentType ? { contentType: result.contentType } : {}),
+        ...(result.body !== undefined ? { html: result.body, truncated: Boolean(result.truncated) } : {}),
+      };
+    }
+    await opts.sleep(backoffMs(retry, opts.retryBaseMs, result.retryAfter));
+  }
 }
 
 function backoffMs(retry: number, baseMs: number, retryAfter?: string): number {
@@ -315,8 +439,16 @@ async function followRedirects(
   start: URL,
   method: 'HEAD' | 'GET',
   opts: Required<Pick<SafeFetchOptions, 'timeoutMs' | 'maxRedirects' | 'isAllowedAddress' | 'resolve'>> &
-    Pick<SafeFetchOptions, 'signal'>
-): Promise<Omit<FetchResult, 'method' | 'attempts'> & { retryAfter?: string }> {
+    Pick<SafeFetchOptions, 'signal'> &
+    BodyOptions
+): Promise<
+  Omit<FetchResult, 'method' | 'attempts'> & {
+    retryAfter?: string;
+    contentType?: string;
+    body?: string;
+    truncated?: boolean;
+  }
+> {
   const redirects: string[] = [];
   let current = start;
 
@@ -336,6 +468,9 @@ async function followRedirects(
         finalUrl: current.toString(),
         redirects,
         retryAfter: response.retryAfter,
+        contentType: response.contentType,
+        body: response.body,
+        truncated: response.truncated,
       };
     }
 

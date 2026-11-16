@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { safeFetch, isPublicAddress, USER_AGENT, type SafeFetchOptions } from '@/lib/checker/safe-fetch';
+import { safeFetch, fetchPage, isPublicAddress, USER_AGENT, type SafeFetchOptions } from '@/lib/checker/safe-fetch';
 
 let server: http.Server;
 let base: string;
@@ -23,6 +23,18 @@ beforeAll(async () => {
 
     const routes: Record<string, () => void> = {
       '/ok': () => res.writeHead(200).end('ok'),
+      '/page': () =>
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end('<title>Hi</title><p>Café</p>'),
+      '/latin1': () =>
+        res
+          .writeHead(200, { 'content-type': 'text/html; charset=iso-8859-1' })
+          .end(Buffer.from([0x3c, 0x70, 0x3e, 0x43, 0x61, 0x66, 0xe9])), // <p>Café in Latin-1
+      '/to-page': () => res.writeHead(301, { location: '/page' }).end(),
+      '/pdf': () => res.writeHead(200, { 'content-type': 'application/pdf' }).end('%PDF-1.4'),
+      '/big-html': () => {
+        res.writeHead(200, { 'content-type': 'text/html' });
+        res.end('<p>' + 'x'.repeat(3 * 1024 * 1024) + '</p>');
+      },
       '/missing': () => res.writeHead(404).end(),
       '/gone': () => res.writeHead(410).end(),
       '/no-head': () => res.writeHead(req.method === 'HEAD' ? 405 : 200).end(),
@@ -242,6 +254,49 @@ describe('safeFetch', () => {
       const result = await safeFetch(`${base}/rate-limited`, localOnly);
       expect(result.status).toBe(200);
       expect(sleeps).toEqual([2000]);
+    });
+  });
+
+  describe('fetchPage', () => {
+    test('downloads HTML and decodes UTF-8', async () => {
+      const page = await fetchPage(`${base}/page`, localOnly);
+      expect(page).toMatchObject({ status: 200, method: 'GET', truncated: false });
+      expect(page.html).toBe('<title>Hi</title><p>Café</p>');
+    });
+
+    test('decodes the declared charset', async () => {
+      const page = await fetchPage(`${base}/latin1`, localOnly);
+      expect(page.html).toBe('<p>Café');
+    });
+
+    test('follows redirects to the page', async () => {
+      const page = await fetchPage(`${base}/to-page`, localOnly);
+      expect(page.finalUrl).toBe(`${base}/page`);
+      expect(page.html).toContain('Café');
+    });
+
+    test('does not download non-HTML bodies', async () => {
+      const page = await fetchPage(`${base}/pdf`, localOnly);
+      expect(page.status).toBe(200);
+      expect(page.contentType).toBe('application/pdf');
+      expect(page.html).toBeUndefined();
+    });
+
+    test('stops at the size cap', async () => {
+      const page = await fetchPage(`${base}/big-html`, { ...localOnly, maxBytes: 1000 });
+      expect(page.truncated).toBe(true);
+      expect(page.html).toHaveLength(1000);
+    });
+
+    test('no body for error responses', async () => {
+      const page = await fetchPage(`${base}/missing`, localOnly);
+      expect(page.status).toBe(404);
+      expect(page.html).toBeUndefined();
+    });
+
+    test('keeps SSRF protection', async () => {
+      const page = await fetchPage('http://169.254.169.254/latest/meta-data/');
+      expect(page.error).toBe('BLOCKED_ADDRESS');
     });
   });
 });
