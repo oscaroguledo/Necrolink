@@ -381,6 +381,79 @@ also rejects years before 1990 and future dates.
 
 ---
 
+## Bug #9: Snapshot Distance Measured by Integer Subtraction (Wayback)
+
+**Severity:** High (resurrects the wrong version of a page)
+
+### Root Cause
+The spec 02 sketch picked the archived copy closest to a citation date by
+subtracting Wayback timestamps (`YYYYMMDDhhmmss`) as integers. Those digits are
+not a linear time scale: crossing a day, month or year boundary jumps by
+millions.
+```typescript
+// Target 2023-01-01 00:00:00
+20230101000000 - 20221231235959 // 8,869,764,041 (really 1 second)
+20230101100000 - 20230101000000 //       100,000 (really 10 hours)
+```
+So the capture 10 hours away was chosen over the one 1 second away.
+
+### How Property Tests Caught It
+`tests/property/wayback.test.ts` generates random captures and citation dates
+and checks the chosen capture is the closest in real time (brute force). With
+the sketch's integer subtraction it fails and shrinks to:
+```
+captures 2005-01-01 and 1996-01-01, citation 2000-07-02 → picked 1996
+```
+(2005 is about a day closer.)
+
+### The Fix
+`findClosestSnapshot()` in `src/lib/wayback/cdx.ts` converts timestamps to real
+times with `Date.UTC` before comparing. Also found while testing against the live
+API: CDX returns captures oldest-first, not newest-first as the spec assumed, so
+"newest" is now computed explicitly (and requested with `limit=-5`).
+
+---
+
+## Bug #10: Rate Limiter Lets Concurrent Callers Through Together (Wayback)
+
+**Severity:** Medium (bursts past the Internet Archive's 5 requests/second)
+
+### Root Cause
+The spec 02 sketch read `lastRequestTime`, awaited a delay, and only then wrote
+`lastRequestTime`. Ten checks running at once all read the same old value before
+any of them wrote, so they all fired together.
+
+### How Property Tests Caught It
+`tests/property/wayback.test.ts` sends bursts of simultaneous callers at random
+times and checks no two requests ever start closer than the interval. Against
+the sketch it fails immediately:
+```
+Counterexample: one burst of 2 callers, interval 1 ms → both start at t=0
+```
+
+### The Fix
+`RateLimiter.waitForSlot()` in `src/lib/wayback/rate-limiter.ts` reserves the
+caller's slot synchronously (`nextSlot = max(now, nextSlot) + interval`) before
+awaiting, so concurrent callers queue up one interval apart.
+
+---
+
+## Also Caught by Tests (Not Property-Based)
+
+**IPv4-mapped IPv6 rule blocked every IPv4 address (SSRF guard).** To stop
+`[::ffff:127.0.0.1]` from bypassing the private-address rules, the first version
+added `::ffff:0:0/96` to Node's `net.BlockList`. Unit tests showed `8.8.8.8` and
+`1.1.1.1` blocked too: `BlockList` also checks plain IPv4 addresses against IPv6
+rules in mapped form. It failed safe, but every link would have been refused.
+Fixed by detecting IPv4-mapped addresses separately in `isPublicAddress()`.
+
+**Timeouts could never fire on PDFs.** pdf.js resolves only through promise
+callbacks, which Node runs before timers, so a 0 ms parse timeout still let the
+whole PDF finish. The PDF extractor now yields to the event loop once per page,
+which also keeps the server responsive to other requests during long parses.
+
+---
+
 ## Summary: The Value of Property-Based Testing
 
 ### Bugs Caught
