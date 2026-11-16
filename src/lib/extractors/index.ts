@@ -79,11 +79,14 @@ const MIME_TYPES: Record<string, DocumentType> = {
 };
 
 /**
- * Work out the document type: explicit type, then file extension, then MIME
- * type, then file contents (a PDF always starts with "%PDF-").
+ * Work out the document type: explicit type, then a PDF header at byte 0,
+ * then file extension, then MIME type, then a PDF header in the first 1 KB.
  */
 export function detectDocumentType(input: Omit<ExtractInput, 'baseUrl'>): DocumentType {
   if (input.type) return input.type;
+
+  // A file that starts with the PDF header is a PDF, whatever it is named
+  if (new TextDecoder('latin1').decode(input.data.subarray(0, 5)) === '%PDF-') return 'pdf';
 
   const ext = input.filename.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
   if (ext && EXTENSIONS[ext]) return EXTENSIONS[ext];

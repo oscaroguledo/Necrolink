@@ -53,6 +53,12 @@ describe('detectDocumentType', () => {
     expect(detectDocumentType({ data: await fixture('sample.pdf'), filename: 'blob' })).toBe('pdf');
   });
 
+  test('a PDF header beats a misleading extension', async () => {
+    expect(detectDocumentType({ data: await fixture('sample.pdf'), filename: 'renamed.md' })).toBe(
+      'pdf'
+    );
+  });
+
   test('rejects unknown types with UNSUPPORTED_FORMAT', () => {
     expect(() => detectDocumentType({ data: text('hello'), filename: 'photo.png' })).toThrow(
       ExtractionError
