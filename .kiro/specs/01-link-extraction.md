@@ -279,13 +279,13 @@ Critical for the hackathon write-up. Test these invariants:
   - Test malformed PDFs (error handling)
 
 ### Phase 5: Date Extraction
-- [ ] **Task 5.1**: Implement `extractCitationDate()`
+- [x] **Task 5.1**: Implement `extractCitationDate()`
   - Regex for ISO dates (YYYY-MM-DD)
   - Regex for "Retrieved", "Accessed" formats
   - Regex for year in parentheses
   - Return Date or undefined
 
-- [ ] **Task 5.2**: Property tests for date parsing
+- [x] **Task 5.2**: Property tests for date parsing
   - Never crashes on random strings
   - Valid dates parse correctly
   - Invalid dates return undefined
@@ -565,6 +565,9 @@ export function normalizeUrl(url: string): string {
  * - "Published: June 2023"
  */
 export function extractCitationDate(context: string): Date | undefined {
+  // Sketch only: implemented in src/lib/extractors/date-parser.ts, which also
+  // rejects impossible days (new Date('2023-02-31') silently rolls over to
+  // March 3), works in UTC, and prefers access dates over publication dates.
   // Try ISO format first
   const isoMatch = context.match(/\d{4}-\d{2}-\d{2}/);
   if (isoMatch) {
