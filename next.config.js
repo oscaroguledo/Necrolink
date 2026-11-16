@@ -5,6 +5,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb', // Allow larger file uploads
     },
+    // pdf.js loads its worker and optional canvas at runtime; let Node require it
+    serverComponentsExternalPackages: ['pdfjs-dist'],
   },
   async headers() {
     return [
