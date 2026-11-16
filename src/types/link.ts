@@ -84,10 +84,20 @@ export interface ExtractionResult {
   };
 }
 
+/** One streamed result from POST /api/check (spec 02). */
 export interface CheckResult {
   linkId: string;
   url: string;
-  status: LinkStatus;
+  status: Exclude<LinkStatus, 'checking'>;
+  /** One plain-English sentence explaining the status. */
+  reason: string;
+  /** Final HTTP status, if the server answered. */
+  httpStatus?: number;
+  /** Where the link ended up after redirects, if it moved. */
+  finalUrl?: string;
+  /** Zombie status is tentative until spec 03 compares content. */
+  suspicious?: boolean;
+  /** Closest archived copy (ghosts, and zombies for comparison). */
   archived?: ArchivedSnapshot;
   zombie?: ZombieReport;
   error?: string;
