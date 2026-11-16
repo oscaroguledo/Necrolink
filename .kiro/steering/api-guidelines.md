@@ -307,7 +307,7 @@ For our use case:
 Always identify yourself when scraping:
 ```typescript
 const headers = {
-  'User-Agent': 'Necrolink/0.1.0 (Link checker; https://github.com/yourusername/necrolink)'
+  'User-Agent': 'Necrolink/0.1.0 (link rot checker; +https://github.com/oscaroguledo/Necrolink)'
 };
 ```
 
