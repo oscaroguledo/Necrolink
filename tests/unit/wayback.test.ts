@@ -235,7 +235,7 @@ describe('TtlCache', () => {
 
 describe('TokenBucketLimiter', () => {
   test('allows a burst, then spaces requests evenly', async () => {
-    let clock = 0;
+    const clock = 0;
     const waits: number[] = [];
     const limiter = new TokenBucketLimiter(15, 3, () => clock, async (ms) => {
       waits.push(ms);
@@ -265,7 +265,7 @@ describe('Internet Archive circuit breaker', () => {
 
   test('a refused connection trips the breaker', async () => {
     const refused = vi.fn<FetchArgs, Promise<Response>>(async () => {
-      throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
+      throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
     });
     await expect(findArchivedSnapshot('https://a.example.com/', undefined, deps(refused))).rejects.toThrow(/limiting requests/);
     expect(isArchiveBlocked()).toBe(true);
