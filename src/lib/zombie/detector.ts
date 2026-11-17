@@ -12,7 +12,7 @@
 
 import type { ArchivedSnapshot, ContentChanges, ZombieReport } from '@/types/link';
 import { fetchPage, type PageResult, type SafeFetchOptions } from '@/lib/checker/safe-fetch';
-import { sharedLimiter } from '@/lib/wayback/cdx';
+import { sharedLimiter, parseWaybackTimestamp } from '@/lib/wayback/cdx';
 import { RateLimiter } from '@/lib/wayback/rate-limiter';
 import { TtlCache, CACHE_TTL_MS } from '@/lib/wayback/cache';
 import { extractMainContent, detectParkedPage, spamTerms, type PageContent } from './content';
@@ -56,6 +56,14 @@ export function driftFromSimilarity(similarity: number): ContentChanges['content
   if (similarity >= 0.4) return 'minor';
   if (similarity >= 0.15) return 'major';
   return 'complete';
+}
+
+/** ISO date of the archived copy, from `timestamp` or, failing that, the raw Wayback timestamp. */
+function archivedIsoDate(snapshot?: ArchivedSnapshot): string {
+  if (!snapshot) return '';
+  if (!Number.isNaN(Date.parse(snapshot.timestamp))) return new Date(snapshot.timestamp).toISOString();
+  const ms = parseWaybackTimestamp(snapshot.originalTimestamp);
+  return Number.isNaN(ms) ? '' : new Date(ms).toISOString();
 }
 
 const quote = (title: string) => (title.length > 60 ? `"${title.slice(0, 57)}..."` : `"${title}"`);
@@ -178,7 +186,7 @@ export async function detectZombie(input: ZombieInput, deps: ZombieDeps = {}): P
       const ai = await analyze({
         url: input.url,
         finalUrl: input.finalUrl,
-        archivedDate: input.archived?.timestamp ?? '',
+        archivedDate: archivedIsoDate(input.archived),
         archived: { title: archived.title, text: archived.text },
         current: { title: current.title, text: current.text },
       });

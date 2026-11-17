@@ -154,8 +154,9 @@ export function createCheckHandler(deps: CheckDeps = {}) {
         // Compute percentiles
         if (checkDurations.length > 0) {
           checkDurations.sort((a, b) => a - b);
+          // Nearest-rank method: the smallest value with at least p of samples at or below it
           const percentile = (p: number) => {
-            const idx = Math.floor(checkDurations.length * p);
+            const idx = Math.max(0, Math.ceil(checkDurations.length * p) - 1);
             return Math.round(checkDurations[idx] ?? 0);
           };
           summary.p50 = percentile(0.5);
