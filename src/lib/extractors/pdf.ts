@@ -6,11 +6,29 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { normalizeUrl } from './url-normalizer';
 import { generateId } from '../utils';
+import { extractCitationDate } from './date-parser';
 
 // Configure PDF.js worker for Node.js environment
 if (typeof window === 'undefined') {
   // In Node.js/test environment, use the legacy build which doesn't require a separate worker
   pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/build/pdf.worker.js');
+}
+
+export type PdfErrorCode = 'ENCRYPTED' | 'PARSE_ERROR' | 'TIMEOUT' | 'TOO_MANY_PAGES';
+
+export interface PdfExtractOptions {
+  maxPages?: number;
+  signal?: AbortSignal;
+}
+
+export class PdfExtractionError extends Error {
+  constructor(
+    public code: PdfErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = 'PdfExtractionError';
+  }
 }
 
 export interface ExtractedLink {
@@ -33,6 +51,7 @@ const URL_REGEX = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-
  * Extract all links from PDF content
  * 
  * @param buffer - PDF file buffer
+ * @param options - Extraction options
  * @returns Array of extracted links with metadata
  * 
  * @example
@@ -43,11 +62,14 @@ const URL_REGEX = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-
  * ```
  */
 export async function extractLinksFromPDF(
-  buffer: ArrayBuffer | Uint8Array
+  buffer: ArrayBuffer | Uint8Array,
+  options: PdfExtractOptions = {}
 ): Promise<ExtractedLink[]> {
   if (!buffer || buffer.byteLength === 0) {
     return [];
   }
+
+  const maxPages = options.maxPages ?? 1000;
 
   try {
     // Load PDF document
@@ -57,10 +79,26 @@ export async function extractLinksFromPDF(
     });
     
     const pdf = await loadingTask.promise;
+    
+    // Check for too many pages
+    if (pdf.numPages > maxPages) {
+      await pdf.destroy();
+      throw new PdfExtractionError(
+        'TOO_MANY_PAGES',
+        `This PDF has ${pdf.numPages} pages. Maximum allowed is ${maxPages}.`
+      );
+    }
+    
     const links: ExtractedLink[] = [];
     
     // Process each page
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      // Check for abort signal
+      if (options.signal?.aborted) {
+        await pdf.destroy();
+        throw new PdfExtractionError('TIMEOUT', 'PDF processing was cancelled.');
+      }
+      
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
       
@@ -98,6 +136,7 @@ export async function extractLinksFromPDF(
             offset,
           },
           context,
+          citationDate: extractCitationDate(context),
         });
       }
     }
@@ -107,8 +146,29 @@ export async function extractLinksFromPDF(
     
     return links;
   } catch (error) {
+    // Re-throw PdfExtractionError as-is
+    if (error instanceof PdfExtractionError) {
+      throw error;
+    }
+    
+    // Handle pdfjs-dist specific errors
+    if (error && typeof error === 'object' && 'name' in error) {
+      const pdfError = error as { name: string; message?: string };
+      
+      // Password-protected PDFs
+      if (pdfError.name === 'PasswordException') {
+        throw new PdfExtractionError('ENCRYPTED', 'This PDF is password-protected.');
+      }
+      
+      // Invalid PDF structure
+      if (pdfError.name === 'InvalidPDFException' || pdfError.name === 'UnknownErrorException') {
+        throw new PdfExtractionError('PARSE_ERROR', 'This PDF is corrupted or invalid.');
+      }
+    }
+    
+    // Generic error
     console.error('Error extracting links from PDF:', error);
-    return [];
+    throw new PdfExtractionError('PARSE_ERROR', 'Failed to extract links from PDF.');
   }
 }
 
@@ -160,6 +220,7 @@ export async function extractLinksFromPDFWithAnnotations(
               offset: 0,
             },
             context: `Link annotation on page ${pageNum}`,
+            citationDate: undefined, // Annotations don't have context for date extraction
           });
         }
       }

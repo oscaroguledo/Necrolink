@@ -6,6 +6,7 @@
 import * as cheerio from 'cheerio';
 import { normalizeUrl, resolveUrl, isAbsoluteUrl } from './url-normalizer';
 import { generateId } from '../utils';
+import { extractCitationDate } from './date-parser';
 
 export interface ExtractedLink {
   id: string;
@@ -99,6 +100,7 @@ export async function extractLinksFromHTML(
           offset: index,
         },
         context,
+        citationDate: extractCitationDate(context),
       });
     });
 
