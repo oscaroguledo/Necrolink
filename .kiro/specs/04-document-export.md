@@ -40,6 +40,24 @@
 
 ---
 
+## Implementation Notes (Nov 2026)
+
+Implemented in `src/lib/exporters/` and `POST /api/export` (see docs/API.md).
+Deliberate changes from the sketches below:
+
+- **Markdown is edited in place** at remark's positions instead of
+  re-serialized with remark-stringify (which reformats the whole document).
+  Non-link content stays byte-for-byte identical; this is property-tested.
+- **Footnotes are `[^necrolink-N]`**, so they never collide with the author's `[^1]`.
+- **Notes are escaped.** Zombie reasons quote titles from arbitrary pages; the
+  HTML sketch interpolated them raw (stored XSS in the exported file).
+- **HTML footnote refs go after the link**, not inside it (no nested `<a>`).
+- **The footer links the GitHub repo, not necrolink.dev.** That domain is not
+  owned; whoever registers it would turn every exported footer into a zombie link.
+- **PDFs get a Markdown resurrection report** instead of a regenerated PDF.
+- Matching uses original URL + occurrence, so one URL cited on different dates
+  can get different archive copies.
+
 ## Design
 
 ### Architecture Overview
@@ -387,25 +405,25 @@ describe('Document Reconstruction Properties', () => {
 ## Tasks
 
 ### Phase 1: Markdown Export
-- [ ] **Task 1.1**: Set up remark stringify
+- [x] **Task 1.1**: Set up remark stringify
   - Install dependencies
   - Configure options
   - Test basic parsing and stringifying
 
-- [ ] **Task 1.2**: Implement `reconstructMarkdown()`
+- [x] **Task 1.2**: Implement `reconstructMarkdown()`
   - Parse original markdown to AST
   - Visit link nodes
   - Replace ghost links
   - Add zombie footnotes
   - Add metadata footer
 
-- [ ] **Task 1.3**: Add visual indicators
+- [x] **Task 1.3**: Add visual indicators
   - 👻→⏮️ for resurrected links
   - 🧟 for zombie links
   - 🪦 for lost souls (URL unchanged)
   - Footnote references [^1], numbered across zombies and lost souls
 
-- [ ] **Task 1.4**: Unit tests
+- [x] **Task 1.4**: Unit tests
   - Test ghost link replacement
   - Test zombie footnote addition
   - Test lost soul keeps original URL and gets a 🪦 footnote
@@ -413,7 +431,7 @@ describe('Document Reconstruction Properties', () => {
   - Test with no fixes (should just add footer)
 
 ### Phase 2: HTML Export
-- [ ] **Task 2.1**: Implement `reconstructHTML()`
+- [x] **Task 2.1**: Implement `reconstructHTML()`
   - Parse HTML with cheerio
   - Select all `<a>` elements
   - Replace ghost links
@@ -425,32 +443,32 @@ describe('Document Reconstruction Properties', () => {
   - Style footnotes section
   - Responsive design
 
-- [ ] **Task 2.3**: Unit tests
+- [x] **Task 2.3**: Unit tests
   - Test link replacement in HTML
   - Test footnote section generation
   - Test with complex nested HTML
 
 ### Phase 3: Replacement Map Builder
-- [ ] **Task 3.1**: Implement `buildReplacementMap()`
+- [x] **Task 3.1**: Implement `buildReplacementMap()`
   - Match links with check results
   - Create replacement rules for ghosts
   - Create footnotes for zombies
   - Create footnotes for lost souls
   - Assign footnote numbers
 
-- [ ] **Task 3.2**: Handle edge cases
+- [x] **Task 3.2**: Handle edge cases
   - Same URL appears multiple times
   - Link has both ghost and zombie status (prioritize ghost)
   - No fixes needed
 
 ### Phase 4: API Endpoint
-- [ ] **Task 4.1**: Create `/api/export` route
+- [x] **Task 4.1**: Create `/api/export` route
   - Accept document ID + check results
   - Build replacement map
   - Reconstruct document
   - Return file download
 
-- [ ] **Task 4.2**: Handle different formats
+- [x] **Task 4.2**: Handle different formats
   - Detect input format
   - Call appropriate reconstructor
   - Set correct Content-Type
@@ -462,24 +480,24 @@ describe('Document Reconstruction Properties', () => {
   - Return summary of what was fixed
 
 ### Phase 5: Summary Report
-- [ ] **Task 5.1**: Generate change summary
+- [x] **Task 5.1**: Generate change summary
   - Count ghosts resurrected
   - Count zombies flagged
   - Count lost souls and list them (links that couldn't be fixed)
   - Format as markdown
 
-- [ ] **Task 5.2**: Add to document footer
+- [x] **Task 5.2**: Add to document footer
   - Statistics summary
   - Link to Necrolink
   - Timestamp
 
 ### Phase 6: Property-Based Testing
-- [ ] **Task 6.1**: Test content preservation
+- [x] **Task 6.1**: Test content preservation
   - Non-link content unchanged
   - Document structure preserved
   - Formatting preserved (bold, italic)
 
-- [ ] **Task 6.2**: Test replacement correctness
+- [x] **Task 6.2**: Test replacement correctness
   - All ghosts replaced
   - All zombies annotated
   - Lost-soul URLs are never changed
