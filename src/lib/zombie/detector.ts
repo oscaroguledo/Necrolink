@@ -92,7 +92,7 @@ export async function detectZombie(input: ZombieInput, deps: ZombieDeps = {}): P
     getPage(input.finalUrl, { signal: deps.signal }),
     input.archived && !isArchiveBlocked()
       ? limiter.waitForSlot().then(async () => {
-          const page = await getPage(rawArchiveUrl(input.archived!, input.url), { signal: deps.signal, timeoutMs: 15_000, maxRetries: 0 });
+          const page = await getPage(rawArchiveUrl(input.archived!, input.url), { signal: deps.signal, timeoutMs: 20_000, maxRetries: 1 });
           if (page.error === 'CONNECTION_REFUSED' || page.status === 429) reportArchiveThrottled();
           return page;
         })

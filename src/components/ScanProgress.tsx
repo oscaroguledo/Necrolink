@@ -41,7 +41,7 @@ export function ScanProgress({ filename, total, counts, checking, onCancel }: Pr
       </p>
 
       <ul className="mt-4 flex flex-wrap gap-2" aria-label="Results so far">
-        {STATUS_ORDER.map((s) => (
+        {STATUS_ORDER.filter((s) => s !== 'error' || counts.error > 0).map((s) => (
           <li key={s}>
             <a
               href={`#section-${s}`}
