@@ -12,8 +12,8 @@
 
 import type { ArchivedSnapshot, ContentChanges, ZombieReport } from '@/types/link';
 import { fetchPage, type PageResult, type SafeFetchOptions } from '@/lib/checker/safe-fetch';
-import { sharedLimiter, parseWaybackTimestamp } from '@/lib/wayback/cdx';
-import { RateLimiter } from '@/lib/wayback/rate-limiter';
+import { sharedLimiter, parseWaybackTimestamp, isArchiveBlocked, reportArchiveThrottled } from '@/lib/wayback/cdx';
+import type { SlotLimiter } from '@/lib/wayback/rate-limiter';
 import { TtlCache, CACHE_TTL_MS } from '@/lib/wayback/cache';
 import { extractMainContent, detectParkedPage, spamTerms, type PageContent } from './content';
 import { contentSimilarity, jaccard, wordCount } from './similarity';
@@ -38,7 +38,7 @@ export interface ZombieDeps {
   /** Set to null to disable AI analysis. */
   analyze?: ((input: AiAnalysisInput) => Promise<AiAnalysis>) | null;
   aiBudget?: AiBudget;
-  archiveLimiter?: RateLimiter;
+  archiveLimiter?: SlotLimiter;
   cache?: TtlCache<ZombieReport>;
   signal?: AbortSignal;
 }
@@ -90,8 +90,12 @@ export async function detectZombie(input: ZombieInput, deps: ZombieDeps = {}): P
 
   const [currentPage, archivedPage] = await Promise.all([
     getPage(input.finalUrl, { signal: deps.signal }),
-    input.archived
-      ? limiter.waitForSlot().then(() => getPage(rawArchiveUrl(input.archived!, input.url), { signal: deps.signal, timeoutMs: 15_000 }))
+    input.archived && !isArchiveBlocked()
+      ? limiter.waitForSlot().then(async () => {
+          const page = await getPage(rawArchiveUrl(input.archived!, input.url), { signal: deps.signal, timeoutMs: 15_000, maxRetries: 0 });
+          if (page.error === 'CONNECTION_REFUSED' || page.status === 429) reportArchiveThrottled();
+          return page;
+        })
       : Promise.resolve(undefined),
   ]);
 

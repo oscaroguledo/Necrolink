@@ -3,7 +3,7 @@
  * Unit tests for the Wayback Machine client, rate limiter and cache.
  */
 
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import {
   findArchivedSnapshot,
   findClosestSnapshot,
@@ -11,9 +11,11 @@ import {
   parseWaybackTimestamp,
   toWaybackTimestamp,
   WaybackError,
+  isArchiveBlocked,
+  resetArchiveBreaker,
   type CdxSnapshot,
 } from '@/lib/wayback/cdx';
-import { RateLimiter } from '@/lib/wayback/rate-limiter';
+import { RateLimiter, TokenBucketLimiter } from '@/lib/wayback/rate-limiter';
 import { TtlCache } from '@/lib/wayback/cache';
 import type { ArchivedSnapshot } from '@/types/link';
 
@@ -230,3 +232,48 @@ describe('TtlCache', () => {
     expect(cache.get('c')).toBe(3);
   });
 });
+
+describe('TokenBucketLimiter', () => {
+  test('allows a burst, then spaces requests evenly', async () => {
+    let clock = 0;
+    const waits: number[] = [];
+    const limiter = new TokenBucketLimiter(15, 3, () => clock, async (ms) => {
+      waits.push(ms);
+    });
+    await Promise.all(Array.from({ length: 5 }, () => limiter.waitForSlot()));
+    // 3 immediately, then one every 4 s (15/min)
+    expect(waits).toEqual([4000, 8000]);
+  });
+
+  test('rejects nonsense settings', () => {
+    expect(() => new TokenBucketLimiter(0)).toThrow(RangeError);
+  });
+});
+
+describe('Internet Archive circuit breaker', () => {
+  afterEach(() => resetArchiveBreaker());
+
+  test('a 429 trips the breaker; later lookups fail fast without a request', async () => {
+    const throttled = deps(mockFetch('slow down', 429));
+    await expect(findArchivedSnapshot('https://a.example.com/', undefined, throttled)).rejects.toThrow(/limiting requests/);
+    expect(isArchiveBlocked()).toBe(true);
+
+    const fetchImpl = mockFetch([]);
+    await expect(findArchivedSnapshot('https://b.example.com/', undefined, deps(fetchImpl))).rejects.toThrow(/limiting requests/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test('a refused connection trips the breaker', async () => {
+    const refused = vi.fn<FetchArgs, Promise<Response>>(async () => {
+      throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
+    });
+    await expect(findArchivedSnapshot('https://a.example.com/', undefined, deps(refused))).rejects.toThrow(/limiting requests/);
+    expect(isArchiveBlocked()).toBe(true);
+  });
+
+  test('other failures do not trip it', async () => {
+    await findArchivedSnapshot('https://a.example.com/', undefined, deps(mockFetch('oops', 503))).catch(() => undefined);
+    expect(isArchiveBlocked()).toBe(false);
+  });
+});
+

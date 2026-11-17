@@ -11,7 +11,7 @@ import {
   toWaybackTimestamp,
   type CdxSnapshot,
 } from '@/lib/wayback/cdx';
-import { RateLimiter } from '@/lib/wayback/rate-limiter';
+import { RateLimiter, TokenBucketLimiter } from '@/lib/wayback/rate-limiter';
 
 const MIN = new Date('1996-01-01T00:00:00Z');
 const MAX = new Date('2026-11-01T00:00:00Z');
@@ -122,3 +122,38 @@ describe('RateLimiter properties', () => {
     );
   });
 });
+
+describe('TokenBucketLimiter properties', () => {
+  test('in any time window, starts never exceed burst + window / interval', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(fc.tuple(fc.integer({ min: 0, max: 20_000 }), fc.integer({ min: 1, max: 10 })), { minLength: 1, maxLength: 12 }),
+        fc.integer({ min: 1, max: 60 }),
+        fc.integer({ min: 1, max: 20 }),
+        async (bursts, perMinute, burst) => {
+          let clock = 0;
+          const starts: number[] = [];
+          const limiter = new TokenBucketLimiter(perMinute, burst, () => clock, async (ms) => {
+            starts.push(clock + ms);
+          });
+          for (const [gap, size] of bursts) {
+            clock += gap;
+            const before = starts.length;
+            await Promise.all(Array.from({ length: size }, () => limiter.waitForSlot()));
+            for (let i = 0; i < size - (starts.length - before); i++) starts.push(clock);
+          }
+          const interval = 60_000 / perMinute;
+          const sorted = [...starts].sort((a, b) => a - b);
+          for (let i = 0; i < sorted.length; i++) {
+            for (let j = i; j < sorted.length; j++) {
+              const window = sorted[j]! - sorted[i]!;
+              expect(j - i + 1).toBeLessThanOrEqual(burst + Math.floor(window / interval + 1e-9));
+            }
+          }
+        }
+      ),
+      { numRuns: 300 }
+    );
+  });
+});
+

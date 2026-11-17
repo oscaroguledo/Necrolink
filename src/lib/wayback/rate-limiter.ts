@@ -26,3 +26,39 @@ export class RateLimiter {
     if (delay > 0) await this.sleep(delay);
   }
 }
+
+/** Anything that hands out request slots. */
+export interface SlotLimiter {
+  waitForSlot(): Promise<void>;
+}
+
+/**
+ * Token bucket (as GCRA): allows a burst of `burst` requests, then
+ * `perMinute` requests per minute. Like RateLimiter, each caller reserves its
+ * slot synchronously, so concurrent callers can never exceed the limit.
+ */
+export class TokenBucketLimiter implements SlotLimiter {
+  private readonly intervalMs: number;
+  private readonly toleranceMs: number;
+  /** Theoretical arrival time of the next request. */
+  private tat = 0;
+
+  constructor(
+    perMinute: number,
+    burst = perMinute,
+    private readonly now: () => number = Date.now,
+    private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  ) {
+    if (!(perMinute > 0) || !(burst >= 1)) throw new RangeError('perMinute must be > 0 and burst >= 1');
+    this.intervalMs = 60_000 / perMinute;
+    this.toleranceMs = (burst - 1) * this.intervalMs;
+  }
+
+  async waitForSlot(): Promise<void> {
+    const now = this.now();
+    const tat = Math.max(this.tat, now);
+    const allowedAt = tat - this.toleranceMs;
+    this.tat = tat + this.intervalMs;
+    if (allowedAt > now) await this.sleep(allowedAt - now);
+  }
+}

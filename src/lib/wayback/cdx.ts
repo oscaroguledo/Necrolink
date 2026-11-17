@@ -10,7 +10,7 @@
  */
 
 import type { ArchivedSnapshot } from '@/types/link';
-import { RateLimiter } from './rate-limiter';
+import { TokenBucketLimiter, type SlotLimiter } from './rate-limiter';
 import { TtlCache, CACHE_TTL_MS } from './cache';
 import { USER_AGENT } from '@/lib/checker/safe-fetch';
 import { log } from '@/lib/logger';
@@ -34,14 +34,46 @@ export class WaybackError extends Error {
 
 export interface WaybackDeps {
   fetch?: typeof fetch;
-  limiter?: RateLimiter;
+  limiter?: SlotLimiter;
   cache?: TtlCache<ArchivedSnapshot | null>;
   timeoutMs?: number;
 }
 
+/**
+ * Requests per minute to web.archive.org (CDX lookups and archived page
+ * downloads together). The Internet Archive refuses connections for several
+ * minutes when a client goes much faster: we hit this at 5 req/s (the
+ * spec's figure) while testing. Tool authors report about 15/min; override
+ * with WAYBACK_MAX_PER_MINUTE.
+ */
+export const WAYBACK_MAX_PER_MINUTE = Math.max(1, Number(process.env.WAYBACK_MAX_PER_MINUTE) || 15);
+
 // Shared across requests in this server process: every request to
-// web.archive.org (CDX lookups and archived page downloads) goes through it
-export const sharedLimiter = new RateLimiter(200);
+// web.archive.org goes through it. Bursts of 15 keep small documents fast.
+export const sharedLimiter: SlotLimiter = new TokenBucketLimiter(WAYBACK_MAX_PER_MINUTE);
+
+/**
+ * Circuit breaker: after the Archive refuses a connection or answers 429, stop
+ * contacting it for a while instead of extending the block.
+ */
+const BLOCK_MS = 5 * 60_000;
+let archiveBlockedUntil = 0;
+
+export function isArchiveBlocked(now: number = Date.now()): boolean {
+  return now < archiveBlockedUntil;
+}
+
+export function reportArchiveThrottled(now: number = Date.now()): void {
+  if (now >= archiveBlockedUntil) log.warn('wayback.blocked', { minutes: BLOCK_MS / 60_000 });
+  archiveBlockedUntil = now + BLOCK_MS;
+}
+
+/** For tests. */
+export function resetArchiveBreaker(): void {
+  archiveBlockedUntil = 0;
+}
+
+const THROTTLED_MESSAGE = 'The Internet Archive is limiting requests right now; try again in a few minutes';
 export const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
 
 /** Wayback timestamp (YYYYMMDDhhmmss, UTC) → epoch milliseconds, or NaN. */
@@ -110,7 +142,7 @@ export async function findArchivedSnapshot(
   const cacheKey = `cdx:${url}:${day}`;
   const cached = cache.get(cacheKey);
   if (cached !== undefined) {
-    log.info('wayback.query', { url, cached: true, found: cached !== null });
+    log.info('wayback.query', { cached: true, found: cached !== null });
     return cached;
   }
 
@@ -130,6 +162,7 @@ export async function findArchivedSnapshot(
     query.set('limit', '-5'); // newest 5
   }
 
+  if (isArchiveBlocked()) throw new WaybackError(THROTTLED_MESSAGE);
   await limiter.waitForSlot();
   let rows: unknown;
   let rawSnapshotCount = 0;
@@ -138,6 +171,10 @@ export async function findArchivedSnapshot(
       headers: { 'User-Agent': USER_AGENT },
       signal: AbortSignal.timeout(timeoutMs),
     });
+    if (response.status === 429) {
+      reportArchiveThrottled();
+      throw new WaybackError(THROTTLED_MESSAGE);
+    }
     if (!response.ok) {
       throw new WaybackError(`The Internet Archive returned ${response.status}`);
     }
@@ -145,6 +182,12 @@ export async function findArchivedSnapshot(
     rawSnapshotCount = Array.isArray(rows) && rows.length > 1 ? rows.length - 1 : 0;
   } catch (error) {
     if (error instanceof WaybackError) throw error;
+    // fetch() wraps the socket error: TypeError('fetch failed', { cause })
+    const code = (error as { cause?: { code?: string } })?.cause?.code;
+    if (code === 'ECONNREFUSED') {
+      reportArchiveThrottled();
+      throw new WaybackError(THROTTLED_MESSAGE);
+    }
     throw new WaybackError('The Internet Archive could not be reached');
   }
 
@@ -161,8 +204,8 @@ export async function findArchivedSnapshot(
     : null;
 
   const latencyMs = Math.round(performance.now() - startedAt);
+  // No URL: cited links come from users' documents and are never logged
   log.info('wayback.query', {
-    url,
     cached: false,
     found: result !== null,
     snapshots: rawSnapshotCount,
