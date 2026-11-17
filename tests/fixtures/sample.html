@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <base href="https://example.com/">
   <meta charset="UTF-8">
-  <title>Sample HTML Document for Link Extraction</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sample HTML Document for Link Extraction Testing</title>
+  <base href="https://example.com/docs/">
 </head>
 <body>
   <header>
-    <h1>HTML Link Extraction Test Page</h1>
+    <h1>Test Document for Necrolink</h1>
     <nav>
-      <a href="https://example.com/">Home</a>
       <a href="/about">About</a>
-      <a href="/docs/guide">Documentation</a>
+      <a href="../contact.html">Contact</a>
+      <a href="guide.html" class="nav-link" id="guide">Guide</a>
     </nav>
   </header>
 
@@ -19,125 +20,98 @@
     <section>
       <h2>Absolute URLs</h2>
       <p>
-        Check out <a href="https://github.com/example/repo">our GitHub repository</a> for the source code.
-        You can also visit <a href="https://example.com/blog?page=1&sort=date">our blog</a> for updates.
+        This paragraph contains <a href="https://archive.org/web/">the Internet Archive</a> 
+        and <a href="https://example.com/page?query=test&utm_source=newsletter&page=2">a link with tracking params</a>.
+      </p>
+      <p>
+        Here's a link with a fragment: <a href="https://research.org/paper#section-3">Section 3</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>Nested Elements</h2>
+      <p>
+        Links can have <a href="https://bold.example.com"><strong>bold text</strong></a> or 
+        <a href="https://emphasis.example.com"><em>emphasized text</em></a> or even 
+        <a href="https://mixed.example.com"><strong>bold and <em>italic</em> mixed</strong></a>.
       </p>
     </section>
 
     <section>
       <h2>Relative URLs</h2>
       <p>
-        See <a href="/docs/getting-started">the getting started guide</a> for installation instructions.
-        For advanced usage, check <a href="api/reference">the API reference</a>.
+        Relative to base: <a href="installation">Installation</a> and 
+        <a href="./overview.html">Overview</a>.
+      </p>
+      <p>
+        Parent directory: <a href="../parent-page.html">Parent page</a>.
       </p>
     </section>
 
     <section>
-      <h2>Nested HTML Elements</h2>
-      <p>
-        This is a <a href="https://example.com/bold"><strong>bold link</strong></a> example.
-        And here's an <a href="https://example.com/italic"><em>italic link</em></a>.
-        Complex: <a href="https://example.com/complex"><strong>Bold</strong> and <em>italic</em></a>.
-      </p>
+      <h2>Special Schemes (Should be Skipped)</h2>
+      <ul>
+        <li>Email: <a href="mailto:test@example.com">Contact us</a></li>
+        <li>Phone: <a href="tel:+1234567890">Call us</a></li>
+        <li>JavaScript: <a href="javascript:alert('xss')" onclick="return false;">Dangerous link</a></li>
+        <li>Data URI: <a href="data:text/plain,Hello">Data link</a></li>
+        <li>Fragment only: <a href="#top">Back to top</a></li>
+      </ul>
     </section>
 
     <section>
-      <h2>Links with Attributes</h2>
+      <h2>Citations with Dates</h2>
+      <blockquote>
+        Smith, J. (2023). "Link Rot in Academic Publications." 
+        <a href="https://journal.example.org/articles/link-rot">Journal of Digital Preservation</a>. 
+        Retrieved 2023-06-15.
+      </blockquote>
       <p>
-        <a href="https://example.com/styled" class="btn primary" id="cta" title="Call to Action">
-          Click Here
-        </a>
-      </p>
-      <p>
-        External link: 
-        <a href="https://external.com/page" target="_blank" rel="noopener noreferrer">
-          External Site
-        </a>
-      </p>
-    </section>
-
-    <section>
-      <h2>Query Parameters and Fragments</h2>
-      <p>
-        Search: <a href="https://example.com/search?q=test&page=2#results">View Results</a>
-      </p>
-      <p>
-        Section link: <a href="https://example.com/doc#introduction">Introduction</a>
-      </p>
-    </section>
-
-    <section>
-      <h2>Tracking Parameters</h2>
-      <p>
-        Newsletter: <a href="https://example.com/promo?utm_source=email&utm_campaign=spring">
-          Spring Promotion
-        </a>
-      </p>
-      <p>
-        Social: <a href="https://example.com/article?fbclid=abc123&page=1">Article</a>
-      </p>
-    </section>
-
-    <section>
-      <h2>Special URL Schemes (Should Be Skipped)</h2>
-      <p>
-        Email: <a href="mailto:contact@example.com">Contact Us</a>
-      </p>
-      <p>
-        Phone: <a href="tel:+1234567890">Call Us</a>
-      </p>
-      <p>
-        JavaScript: <a href="javascript:alert('test')">Alert</a>
+        According to a 2022 study from <a href="https://research.example.edu/papers/123">Example University</a>, 
+        approximately 50% of cited links become unavailable within 10 years.
       </p>
     </section>
 
     <section>
       <h2>Duplicate URLs</h2>
       <p>
-        First occurrence: <a href="https://duplicate.example.com/page">Duplicate Link</a>
+        This is the <a href="https://duplicate.example.com">first occurrence</a> of this link.
       </p>
       <p>
-        Second occurrence: <a href="https://duplicate.example.com/page">Same URL Different Text</a>
+        And this is the <a href="https://duplicate.example.com">second occurrence</a> of the same URL.
       </p>
     </section>
 
     <section>
       <h2>Edge Cases</h2>
       <p>
-        Empty text: <a href="https://example.com/empty"></a>
+        Empty text: <a href="https://empty-text.example.com"></a>
       </p>
       <p>
-        Whitespace: <a href="https://example.com/whitespace">   Trimmed   </a>
+        Link with multiple attributes: 
+        <a href="https://attrs.example.com" class="btn btn-primary" id="main-cta" data-track="click">Click here</a>
       </p>
       <p>
-        Very long text: 
-        <a href="https://example.com/long">
-          This is a very long link text that spans multiple lines and contains
-          lots of words to test how the extractor handles lengthy anchor text
-          without breaking or losing information.
-        </a>
+        URL with mixed case: <a href="HTTPS://EXAMPLE.COM/PATH/">Mixed Case URL</a>
       </p>
     </section>
 
     <section>
-      <h2>Links with Citation Dates</h2>
+      <h2>Long Context Test</h2>
       <p>
-        Published on 2023-06-15: 
-        <a href="https://example.com/article">Research Article</a>
-      </p>
-      <p>
-        Retrieved 2023-11-12 from 
-        <a href="https://archive.org/details/item">Internet Archive</a>
+        This is a very long paragraph with lots of text before the link to test context extraction. 
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut 
+        labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
+        nisi ut aliquip ex ea commodo consequat. Here is <a href="https://context-test.example.com">the link</a> 
+        and now there is more text after the link. Duis aute irure dolor in reprehenderit in voluptate velit 
+        esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in 
+        culpa qui officia deserunt mollit anim id est laborum.
       </p>
     </section>
   </main>
 
   <footer>
-    <p>&copy; 2024 Example. All rights reserved.</p>
-    <p>
-      <a href="https://example.com/privacy">Privacy Policy</a> | 
-      <a href="https://example.com/terms">Terms of Service</a>
-    </p>
+    <p>Footer link: <a href="https://example.com/privacy">Privacy Policy</a></p>
   </footer>
 </body>
 </html>
