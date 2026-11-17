@@ -39,6 +39,8 @@ export interface CheckDeps {
 
 const sharedHealthCache = new TtlCache<{ fetch: FetchResult; classification: Classification }>(5000);
 
+export { sharedHealthCache };
+
 /** The result for one link. Never throws; failures become status "error". */
 export async function checkLink(
   link: LinkToCheck,

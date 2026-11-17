@@ -26,6 +26,9 @@ export interface CheckSummary {
   zombie: number;
   error: number;
   ms: number;
+  p50?: number;
+  p95?: number;
+  p99?: number;
 }
 
 class BadRequest extends Error {}
@@ -104,6 +107,7 @@ export function createCheckHandler(deps: CheckDeps = {}) {
         const summary: CheckSummary = { total: links.length, living: 0, ghost: 0, lost: 0, zombie: 0, error: 0, ms: 0 };
         // Check each distinct URL + citation day once; fan the result out to every link id
         const inFlight = new Map<string, Promise<CheckResult>>();
+        const checkDurations: number[] = [];
         const send = (chunk: string) => {
           if (controller.signal.aborted) return;
           try {
@@ -118,6 +122,7 @@ export function createCheckHandler(deps: CheckDeps = {}) {
             const key = `${link.url}|${link.citationDate?.toISOString().slice(0, 10) ?? ''}`;
             let pending = inFlight.get(key);
             if (!pending) {
+              const checkStartedAt = performance.now();
               pending = limit(() =>
                 controller.signal.aborted
                   ? Promise.resolve<CheckResult>({
@@ -129,7 +134,11 @@ export function createCheckHandler(deps: CheckDeps = {}) {
                       checkedAt: new Date(),
                     })
                   : checkLink(link, requestDeps, controller.signal)
-              );
+              ).then((result) => {
+                const duration = performance.now() - checkStartedAt;
+                checkDurations.push(duration);
+                return result;
+              });
               inFlight.set(key, pending);
             }
             return pending.then((result) => {
@@ -141,8 +150,36 @@ export function createCheckHandler(deps: CheckDeps = {}) {
         );
 
         summary.ms = Math.round(performance.now() - startedAt);
+        
+        // Compute percentiles
+        if (checkDurations.length > 0) {
+          checkDurations.sort((a, b) => a - b);
+          const percentile = (p: number) => {
+            const idx = Math.floor(checkDurations.length * p);
+            return Math.round(checkDurations[idx] ?? 0);
+          };
+          summary.p50 = percentile(0.5);
+          summary.p95 = percentile(0.95);
+          summary.p99 = percentile(0.99);
+        }
+
         send(sseEvent(summary, 'done'));
         log.info('check.finished', { ...summary, cancelled: controller.signal.aborted });
+        
+        // Log cache stats
+        const { sharedHealthCache } = await import('./check-link');
+        const { sharedCache } = await import('@/lib/wayback/cdx');
+        const healthTotal = sharedHealthCache.hits + sharedHealthCache.misses;
+        const cdxTotal = sharedCache.hits + sharedCache.misses;
+        log.info('cache.stats', {
+          healthHits: sharedHealthCache.hits,
+          healthMisses: sharedHealthCache.misses,
+          healthHitRate: healthTotal > 0 ? Math.round((sharedHealthCache.hits / healthTotal) * 100) / 100 : 0,
+          cdxHits: sharedCache.hits,
+          cdxMisses: sharedCache.misses,
+          cdxHitRate: cdxTotal > 0 ? Math.round((sharedCache.hits / cdxTotal) * 100) / 100 : 0,
+        });
+        
         try {
           sink.close();
         } catch {

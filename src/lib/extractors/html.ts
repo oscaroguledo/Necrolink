@@ -4,6 +4,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 import { normalizeUrl, resolveUrl, isAbsoluteUrl } from './url-normalizer';
 import { generateId } from '../utils';
 import { extractCitationDate } from './date-parser';
@@ -117,7 +118,7 @@ export async function extractLinksFromHTML(
  */
 function extractContext(
   $: cheerio.CheerioAPI,
-  element: cheerio.Element
+  element: Element
 ): string {
   const $elem = $(element);
   

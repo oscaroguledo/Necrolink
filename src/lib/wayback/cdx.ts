@@ -13,6 +13,7 @@ import type { ArchivedSnapshot } from '@/types/link';
 import { RateLimiter } from './rate-limiter';
 import { TtlCache, CACHE_TTL_MS } from './cache';
 import { USER_AGENT } from '@/lib/checker/safe-fetch';
+import { log } from '@/lib/logger';
 
 const CDX_ENDPOINT = 'https://web.archive.org/cdx/search/cdx';
 
@@ -41,7 +42,7 @@ export interface WaybackDeps {
 // Shared across requests in this server process: every request to
 // web.archive.org (CDX lookups and archived page downloads) goes through it
 export const sharedLimiter = new RateLimiter(200);
-const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
+export const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
 
 /** Wayback timestamp (YYYYMMDDhhmmss, UTC) → epoch milliseconds, or NaN. */
 export function parseWaybackTimestamp(ts: string): number {
@@ -108,7 +109,12 @@ export async function findArchivedSnapshot(
   const day = citationDate ? toWaybackTimestamp(citationDate).slice(0, 8) : 'latest';
   const cacheKey = `cdx:${url}:${day}`;
   const cached = cache.get(cacheKey);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    log.info('wayback.query', { url, cached: true, found: cached !== null });
+    return cached;
+  }
+
+  const startedAt = performance.now();
 
   const query = new URLSearchParams({
     url,
@@ -126,6 +132,7 @@ export async function findArchivedSnapshot(
 
   await limiter.waitForSlot();
   let rows: unknown;
+  let rawSnapshotCount = 0;
   try {
     const response = await doFetch(`${CDX_ENDPOINT}?${query}`, {
       headers: { 'User-Agent': USER_AGENT },
@@ -135,6 +142,7 @@ export async function findArchivedSnapshot(
       throw new WaybackError(`The Internet Archive returned ${response.status}`);
     }
     rows = await response.json();
+    rawSnapshotCount = Array.isArray(rows) && rows.length > 1 ? rows.length - 1 : 0;
   } catch (error) {
     if (error instanceof WaybackError) throw error;
     throw new WaybackError('The Internet Archive could not be reached');
@@ -151,6 +159,15 @@ export async function findArchivedSnapshot(
         ...(citationDate ? { closestToDate: citationDate } : {}),
       }
     : null;
+
+  const latencyMs = Math.round(performance.now() - startedAt);
+  log.info('wayback.query', {
+    url,
+    cached: false,
+    found: result !== null,
+    snapshots: rawSnapshotCount,
+    latencyMs,
+  });
 
   cache.set(cacheKey, result, CACHE_TTL_MS.cdx);
   return result;
