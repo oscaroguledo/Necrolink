@@ -138,7 +138,7 @@ export async function checkLink(
             ...base,
             ...details,
             status: 'error',
-            reason: `${classification.reason}. ${why}, so no archived copy could be found; try again later.`,
+            reason: `${classification.reason}. ${why}, so no archived copy could be looked up. Try again in a few minutes.`,
             error: 'WAYBACK_UNAVAILABLE',
             checkedAt: now(),
           };

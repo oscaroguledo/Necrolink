@@ -43,14 +43,17 @@ export interface WaybackDeps {
  * Requests per minute to web.archive.org (CDX lookups and archived page
  * downloads together). The Internet Archive refuses connections for several
  * minutes when a client goes much faster: we hit this at 5 req/s (the
- * spec's figure) while testing. Tool authors report about 15/min; override
- * with WAYBACK_MAX_PER_MINUTE.
+ * spec's figure), and again with bursts of ~8 requests, while testing. Tool
+ * authors report about 15/min. Override with WAYBACK_MAX_PER_MINUTE and
+ * WAYBACK_BURST.
  */
-export const WAYBACK_MAX_PER_MINUTE = Math.max(1, Number(process.env.WAYBACK_MAX_PER_MINUTE) || 15);
+export const WAYBACK_MAX_PER_MINUTE = Math.max(1, Number(process.env.WAYBACK_MAX_PER_MINUTE) || 12);
+/** Requests allowed back to back before pacing starts (blocked at ~8 in testing). */
+export const WAYBACK_BURST = Math.max(1, Number(process.env.WAYBACK_BURST) || 5);
 
 // Shared across requests in this server process: every request to
-// web.archive.org goes through it. Bursts of 15 keep small documents fast.
-export const sharedLimiter: SlotLimiter = new TokenBucketLimiter(WAYBACK_MAX_PER_MINUTE);
+// web.archive.org goes through it. A small burst keeps short documents fast.
+export const sharedLimiter: SlotLimiter = new TokenBucketLimiter(WAYBACK_MAX_PER_MINUTE, WAYBACK_BURST);
 
 /**
  * Circuit breaker: after the Archive refuses a connection or answers 429, stop
@@ -73,7 +76,7 @@ export function resetArchiveBreaker(): void {
   archiveBlockedUntil = 0;
 }
 
-const THROTTLED_MESSAGE = 'The Internet Archive is limiting requests right now; try again in a few minutes';
+const THROTTLED_MESSAGE = 'The Internet Archive is limiting requests right now';
 export const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
 
 /** Wayback timestamp (YYYYMMDDhhmmss, UTC) → epoch milliseconds, or NaN. */

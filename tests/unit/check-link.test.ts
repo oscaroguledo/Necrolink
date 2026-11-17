@@ -84,7 +84,7 @@ describe('checkLink', () => {
 
     expect(result.status).toBe('error');
     expect(result.error).toBe('WAYBACK_UNAVAILABLE');
-    expect(result.reason).toMatch(/permanently removed.*503.*try again later/i);
+    expect(result.reason).toMatch(/permanently removed.*503.*try again in a few minutes/i);
   });
 
   test('zombie: suspicious redirect, with an archived copy for comparison', async () => {
