@@ -12,6 +12,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Mock canvas for pdfjs-dist
+      'canvas': path.resolve(__dirname, './tests/mocks/canvas.ts'),
     },
   },
 });
