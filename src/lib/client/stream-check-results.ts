@@ -97,6 +97,8 @@ export async function streamCheckResults(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  // Kept across chunks: "event: done" and its "data:" line may arrive separately
+  let currentEvent: string | undefined;
 
   try {
     while (true) {
@@ -108,7 +110,6 @@ export async function streamCheckResults(
       // Keep the last incomplete line in the buffer
       buffer = lines.pop() || '';
 
-      let currentEvent: string | undefined;
       for (const line of lines) {
         if (line.startsWith('event:')) {
           currentEvent = line.slice(6).trim();

@@ -337,4 +337,30 @@ describe('streamCheckResults', () => {
 
     expect(results).toHaveLength(1);
   });
+
+  test('event line and its data line in different chunks', async () => {
+    const results: CheckResult[] = [];
+    let summary: CheckSummary | undefined;
+    const encode = (s: string) => new TextEncoder().encode(s);
+    const mockReader = {
+      read: vi
+        .fn()
+        .mockResolvedValueOnce({ done: false, value: encode('event: done\n') })
+        .mockResolvedValueOnce({ done: false, value: encode('data: {"total":0,"living":0,"ghost":0,"lost":0,"zombie":0,"error":0,"ms":1}\n\n') })
+        .mockResolvedValueOnce({ done: true, value: undefined }),
+      cancel: vi.fn(),
+    };
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, body: { getReader: () => mockReader } });
+
+    await streamCheckResults('/api/check', [{ id: 'a', url: 'https://example.com' }], {
+      onResult: (result) => results.push(result),
+      onDone: (sum) => {
+        summary = sum;
+      },
+      onError: () => undefined,
+    });
+
+    expect(results).toHaveLength(0);
+    expect(summary).toMatchObject({ total: 0, ms: 1 });
+  });
 });
