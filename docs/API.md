@@ -195,3 +195,76 @@ with `error: "BLOCKED_ADDRESS"`.
 
 `check.started` (link count) and `check.finished` (counts per status, ms,
 whether the client cancelled). URLs are not logged.
+
+---
+
+## `POST /api/export`
+
+Download the document with its links fixed. Send the original document text
+and the results from `/api/check`.
+
+### Request
+
+`application/json`, at most 12 MB:
+
+| Field | Required | Description |
+|---|---|---|
+| `filename` | yes | Original file name; used to name the download. |
+| `type` | yes | `markdown`, `html` or `pdf`. |
+| `format` | no | `document` (default) or `report`. PDFs always get a report. |
+| `content` | for documents | The original Markdown or HTML text (max 10 MB). |
+| `baseUrl` | no | Same `baseUrl` used for `/api/extract`, so relative HTML links match. |
+| `links` | for reports | The links from `/api/extract`. For documents they are re-extracted from `content` on the server. |
+| `results` | yes | The `/api/check` results: `linkId`, `status`, `reason`, `archived`. |
+
+```json
+{
+  "filename": "paper.md",
+  "type": "markdown",
+  "content": "See [the study](https://dead.example.com/study).\n",
+  "results": [
+    {
+      "linkId": "link_1",
+      "status": "ghost",
+      "reason": "Page not found (404)",
+      "archived": { "url": "https://web.archive.org/web/20190501000000/https://dead.example.com/study", "timestamp": "2019-05-01T00:00:00.000Z" }
+    }
+  ]
+}
+```
+
+### Response
+
+`200` with the file as an attachment (`Content-Disposition`), named
+`<name>.necrolink.md`, `<name>.necrolink.html` or `<name>.necrolink-report.md`.
+`X-Necrolink-Stats` holds `{"ghosts":1,"zombies":0,"lost":0,"unchanged":0}`.
+
+**What changes**
+
+| Status | In the document |
+|---|---|
+| 👻 `ghost` | URL replaced with the archived copy; text marked `👻→⏮️`. |
+| 🧟 `zombie` | URL kept; marked `🧟`; footnote explaining what changed. |
+| 🪦 `lost` | URL **never** changed (there is nothing to resurrect it from); marked `🪦`; footnote saying to find another source. |
+| `living`, `error` | Unchanged. |
+
+Footnotes are numbered across zombies and lost souls and listed under
+"🪦 Necrolink Notes"; a footer gives the date and counts.
+
+Markdown edits are made in place: everything outside the changed links stays
+byte-for-byte identical (property-tested). Footnote labels are
+`[^necrolink-N]`, so they never collide with the author's own `[^1]`. Links in
+code blocks are never changed. A ghost reference-style link becomes an inline
+link; the shared definition is left alone. In HTML, the original URL of a
+ghost is kept in `data-necrolink-original`.
+
+**Safety:** archive URLs must be `https://web.archive.org/web/...`; anything
+else is ignored. Notes quote titles from arbitrary web pages, so they are
+escaped in both Markdown and HTML.
+
+### Errors
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `INVALID_REQUEST` | Not JSON, or a missing or invalid field. |
+| 413 | `BODY_TOO_LARGE` | Body over 12 MB. |

@@ -53,9 +53,9 @@ Visit `http://localhost:3000` to start checking links.
 - [x] Link extraction from PDF, Markdown, and web pages (`POST /api/extract`)
 - [x] Link health checker (ghost/lost soul/zombie/living classification, `POST /api/check`)
 - [x] Internet Archive Wayback Machine integration
-- [ ] AI-powered zombie detection
+- [x] AI-powered zombie detection
 - [ ] Graveyard results interface
-- [ ] Export fixed documents
+- [x] Export fixed documents (`POST /api/export`)
 
 ### Stretch Goals
 
@@ -76,7 +76,7 @@ Visit `http://localhost:3000` to start checking links.
 
 ## 📚 Documentation
 
-- [API Reference](docs/API.md) - `POST /api/extract` and `POST /api/check` requests, responses and error codes
+- [API Reference](docs/API.md) - `POST /api/extract`, `POST /api/check` and `POST /api/export`
 - [Bugs Found by Property Tests](BUGS_FOUND.md) - What fast-check caught and how each bug was fixed
 - [Product Vision](/.kiro/steering/product-vision.md) - The spooky theme and user experience
 - [Technical Conventions](/.kiro/steering/technical-conventions.md) - Code standards and patterns
