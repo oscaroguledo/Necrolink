@@ -5,7 +5,9 @@
  *   alive       → living
  *   dead + copy → ghost (resurrectable)
  *   dead, none  → lost  (lost soul)
- *   suspicious  → zombie (tentative; spec 03 confirms with content)
+ *   suspicious  → content comparison (spec 03): zombie, or living if the
+ *                 same content is still there; tentative zombie if it
+ *                 could not be compared
  *   unchecked   → error
  */
 
@@ -14,6 +16,8 @@ import { safeFetch, type FetchResult, type SafeFetchOptions } from './safe-fetch
 import { classify, type Classification } from './classify';
 import { findArchivedSnapshot, WaybackError } from '@/lib/wayback/cdx';
 import { TtlCache, CACHE_TTL_MS } from '@/lib/wayback/cache';
+import { detectZombie, type ZombieInput, type AiBudget } from '@/lib/zombie/detector';
+import type { ZombieReport } from '@/types/link';
 
 export interface LinkToCheck {
   id: string;
@@ -26,6 +30,10 @@ export interface CheckDeps {
   findSnapshot?: (url: string, citationDate?: Date) => Promise<ArchivedSnapshot | null>;
   /** Caches fetch + classification by URL for 1 hour. */
   healthCache?: TtlCache<{ fetch: FetchResult; classification: Classification }>;
+  /** Content comparison for suspicious links; null keeps them tentative. */
+  detectZombie?: ((input: ZombieInput, signal?: AbortSignal) => Promise<ZombieReport>) | null;
+  /** AI calls left for this request (shared across its links). */
+  aiBudget?: AiBudget;
   now?: () => Date;
 }
 
@@ -76,14 +84,43 @@ export async function checkLink(
         };
 
       case 'suspicious': {
-        // The archived copy lets spec 03 compare then vs now; optional here
+        // The archived copy lets us compare then vs now
         const archived = await findSnapshot(link.url, link.citationDate).catch(() => null);
+        const detect =
+          deps.detectZombie === undefined
+            ? (input: ZombieInput, s?: AbortSignal) => detectZombie(input, { aiBudget: deps.aiBudget, signal: s })
+            : deps.detectZombie;
+        const report = detect
+          ? await detect(
+              {
+                url: link.url,
+                finalUrl: fetched.finalUrl,
+                suspicionReason: classification.reason,
+                ...(archived ? { archived } : {}),
+              },
+              signal
+            ).catch(() => null)
+          : null;
+
+        if (report && !report.isZombie) {
+          return {
+            ...base,
+            ...details,
+            status: 'living',
+            reason: report.reason,
+            zombie: report,
+            ...(archived ? { archived } : {}),
+            checkedAt: now(),
+          };
+        }
         return {
           ...base,
           ...details,
           status: 'zombie',
-          suspicious: true,
-          reason: classification.reason,
+          // Tentative unless the content comparison confirmed it
+          suspicious: !report || report.method === 'unverified',
+          reason: report?.reason ?? classification.reason,
+          ...(report ? { zombie: report } : {}),
           ...(archived ? { archived } : {}),
           checkedAt: now(),
         };

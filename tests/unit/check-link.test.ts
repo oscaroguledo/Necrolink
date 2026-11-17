@@ -36,6 +36,7 @@ function setup(fetchResult: Partial<FetchResult>, snapshot: ArchivedSnapshot | n
     fetchStatus,
     findSnapshot,
     healthCache: new TtlCache(),
+    detectZombie: null, // content comparison is tested separately below
     now: () => NOW,
   };
   return { deps, fetchStatus, findSnapshot };
@@ -143,5 +144,60 @@ describe('checkLink', () => {
     };
     const result = await checkLink(link, deps);
     expect(result).toMatchObject({ status: 'error', error: 'boom' });
+  });
+
+  describe('with content comparison (spec 03)', () => {
+    const redirected = {
+      status: 200,
+      finalUrl: 'https://new-home.example.org/paper',
+      redirects: ['https://new-home.example.org/paper'],
+    };
+    const report = (isZombie: boolean, method: 'heuristic' | 'ai' | 'unverified' = 'heuristic') => ({
+      isZombie,
+      confidence: 0.9,
+      method,
+      reason: isZombie ? 'The page now shows completely different content' : 'The link redirects, but the same content is still there',
+      changes: { titleChanged: isZombie, contentDrift: isZombie ? ('complete' as const) : ('none' as const), possibleTakeover: false },
+    });
+
+    test('confirmed zombie: not tentative, report attached', async () => {
+      const { deps } = setup(redirected);
+      const detect = vi.fn(async () => report(true));
+      const result = await checkLink(link, { ...deps, detectZombie: detect });
+
+      expect(result).toMatchObject({ status: 'zombie', suspicious: false, reason: 'The page now shows completely different content' });
+      expect(result.zombie?.isZombie).toBe(true);
+      expect(detect).toHaveBeenCalledWith(
+        expect.objectContaining({ url: URL_, finalUrl: 'https://new-home.example.org/paper', archived: SNAPSHOT }),
+        undefined
+      );
+    });
+
+    test('same content at a new address → living, with the report', async () => {
+      const { deps } = setup(redirected);
+      const result = await checkLink(link, { ...deps, detectZombie: async () => report(false) });
+
+      expect(result).toMatchObject({ status: 'living', finalUrl: 'https://new-home.example.org/paper' });
+      expect(result.reason).toMatch(/same content/);
+      expect(result.zombie?.isZombie).toBe(false);
+    });
+
+    test('could not compare → tentative zombie', async () => {
+      const { deps } = setup(redirected);
+      const result = await checkLink(link, { ...deps, detectZombie: async () => report(true, 'unverified') });
+      expect(result).toMatchObject({ status: 'zombie', suspicious: true });
+    });
+
+    test('detector failure → tentative zombie with the classification reason', async () => {
+      const { deps } = setup(redirected);
+      const result = await checkLink(link, {
+        ...deps,
+        detectZombie: async () => {
+          throw new Error('boom');
+        },
+      });
+      expect(result).toMatchObject({ status: 'zombie', suspicious: true });
+      expect(result.reason).toMatch(/different site/);
+    });
   });
 });

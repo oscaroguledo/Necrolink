@@ -13,6 +13,8 @@ import { log } from '@/lib/logger';
 import { createLimiter } from './concurrency';
 
 export const MAX_LINKS_PER_REQUEST = 500;
+/** Kiro API calls allowed per /api/check request (spec 03 task 5.3). */
+export const AI_CALLS_PER_REQUEST = 50;
 const MAX_BODY_BYTES = 1024 * 1024;
 const CONCURRENCY = 10;
 
@@ -93,6 +95,7 @@ export function createCheckHandler(deps: CheckDeps = {}) {
     const controller = new AbortController();
     request.signal?.addEventListener('abort', () => controller.abort(), { once: true });
     const limit = createLimiter(CONCURRENCY);
+    const requestDeps: CheckDeps = { aiBudget: { remaining: AI_CALLS_PER_REQUEST }, ...deps };
     const encoder = new TextEncoder();
     log.info('check.started', { links: links.length });
 
@@ -125,7 +128,7 @@ export function createCheckHandler(deps: CheckDeps = {}) {
                       error: 'CANCELLED',
                       checkedAt: new Date(),
                     })
-                  : checkLink(link, deps, controller.signal)
+                  : checkLink(link, requestDeps, controller.signal)
               );
               inFlight.set(key, pending);
             }

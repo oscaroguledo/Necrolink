@@ -39,7 +39,7 @@ function fakeDeps(delayMs = 0) {
           mimeType: 'text/html',
         }
   );
-  const deps: CheckDeps = { fetchStatus, findSnapshot, healthCache: new TtlCache() };
+  const deps: CheckDeps = { fetchStatus, findSnapshot, healthCache: new TtlCache(), detectZombie: null };
   return { deps, fetchStatus, findSnapshot, peak: () => peak };
 }
 

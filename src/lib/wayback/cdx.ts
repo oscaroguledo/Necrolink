@@ -38,8 +38,9 @@ export interface WaybackDeps {
   timeoutMs?: number;
 }
 
-// Shared across requests in this server process
-const sharedLimiter = new RateLimiter(200);
+// Shared across requests in this server process: every request to
+// web.archive.org (CDX lookups and archived page downloads) goes through it
+export const sharedLimiter = new RateLimiter(200);
 const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
 
 /** Wayback timestamp (YYYYMMDDhhmmss, UTC) → epoch milliseconds, or NaN. */

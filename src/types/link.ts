@@ -50,9 +50,17 @@ export interface ArchivedSnapshot {
 }
 
 export interface ZombieReport {
+  /** Verdict of the content comparison (spec 03). */
+  isZombie: boolean;
   reason: string; // human-readable explanation
   confidence: number; // 0-1
+  /** heuristic: text comparison; ai: Kiro API; unverified: could not compare. */
+  method: 'heuristic' | 'ai' | 'unverified';
   changes: ContentChanges;
+  archivedTitle?: string;
+  currentTitle?: string;
+  /** Text similarity between archived and current page, 0-1. */
+  similarity?: number;
 }
 
 export interface ContentChanges {

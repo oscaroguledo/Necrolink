@@ -1,20 +1,26 @@
 /**
  * HTML link extraction using cheerio.
- * Extracts <a href> links, resolves relative URLs, and normalizes.
+ * Extracts links from HTML documents with support for relative URL resolution.
  */
 
 import * as cheerio from 'cheerio';
-import type { Element } from 'domhandler';
 import { normalizeUrl, resolveUrl, isAbsoluteUrl } from './url-normalizer';
-import { extractCitationDate } from './date-parser';
+import { generateId } from '../utils';
 
-import type { ExtractedLink } from '@/types/link';
-
-// position.offset is the element index (cheerio has no character offsets)
-export type { ExtractedLink };
+export interface ExtractedLink {
+  id: string;
+  url: string;
+  originalUrl: string;
+  text: string;
+  position: {
+    offset: number;
+  };
+  context: string;
+  citationDate?: Date;
+}
 
 /**
- * Extract all HTTP/HTTPS links from HTML content
+ * Extract all links from HTML content
  * 
  * @param html - HTML source text
  * @param baseUrl - Optional base URL for resolving relative links
@@ -23,16 +29,15 @@ export type { ExtractedLink };
  * @example
  * ```typescript
  * const links = await extractLinksFromHTML(`
- *   <p>Visit <a href="https://example.com">Example</a> for details.</p>
+ *   <a href="https://example.com">Example</a>
  * `);
- * // => [{ id: 'link_1', url: 'https://example.com/', ... }]
+ * // => [{ id: 'link_1', url: 'https://example.com', ... }]
  * ```
  */
 export async function extractLinksFromHTML(
   html: string,
   baseUrl?: string
 ): Promise<ExtractedLink[]> {
-  // Handle empty input
   if (!html || html.trim() === '') {
     return [];
   }
@@ -40,141 +45,103 @@ export async function extractLinksFromHTML(
   try {
     const $ = cheerio.load(html);
     const links: ExtractedLink[] = [];
-    let linkIndex = 1;
 
-    // Detect base URL from <base> tag if present
-    const baseTag = $('base[href]').first();
-    const detectedBase = baseTag.length > 0 ? baseTag.attr('href') : undefined;
-    
-    // Prefer passed baseUrl over detected base
-    const effectiveBase = baseUrl || detectedBase;
+    // Check for <base> tag if no baseUrl provided
+    if (!baseUrl) {
+      const baseElement = $('base[href]');
+      if (baseElement.length > 0) {
+        baseUrl = baseElement.attr('href');
+      }
+    }
 
-    // Select all anchor elements with href attribute
+    // Extract all <a> elements with href attribute
     $('a[href]').each((index, element) => {
       const $elem = $(element);
-      const href = $elem.attr('href')?.trim();
+      let href = $elem.attr('href');
 
-      // Skip if href is empty or undefined
-      if (!href) {
-        return;
-      }
+      if (!href) return;
 
-      const lowerHref = href.toLowerCase();
-
-      // Skip special schemes
+      // Skip special URL schemes
       if (
-        lowerHref.startsWith('mailto:') ||
-        lowerHref.startsWith('tel:') ||
-        lowerHref.startsWith('javascript:') ||
-        lowerHref.startsWith('data:')
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:') ||
+        href.startsWith('javascript:') ||
+        href.startsWith('data:')
       ) {
         return;
       }
 
-      // Skip fragment-only links
-      if (href.startsWith('#')) {
-        return;
+      const originalUrl = href;
+
+      // Resolve relative URLs
+      if (!isAbsoluteUrl(href) && baseUrl) {
+        href = resolveUrl(href, baseUrl);
       }
 
-      // Resolve relative and protocol-relative URLs
-      let resolvedUrl = href;
+      // Skip if still not absolute after resolution attempt
       if (!isAbsoluteUrl(href)) {
-        if (effectiveBase) {
-          resolvedUrl = resolveUrl(href, effectiveBase);
-        } else if (href.startsWith('//')) {
-          resolvedUrl = 'https:' + href;
-        }
-      }
-
-      // Only HTTP(S) links can be checked. This also drops relative links
-      // with no base URL, which normalizeUrl would otherwise turn into a
-      // bogus host (e.g. "about.html" → "https://about.html/").
-      if (!/^https?:\/\//i.test(resolvedUrl)) {
         return;
       }
 
-      // Extract anchor text (cheerio handles nested elements automatically)
+      // Extract link text (handle nested HTML)
       const text = $elem.text().trim();
-      const displayText = text || href; // fallback to href if no text
 
-      // Extract context from parent element
-      const context = extractContext($, $elem);
+      // Extract surrounding context (50 chars before and after)
+      const context = extractContext($, element);
 
-      // Normalize the URL
-      const normalizedUrl = normalizeUrl(resolvedUrl);
-
+      // Create extracted link
       links.push({
-        id: `link_${linkIndex++}`,
-        url: normalizedUrl,
-        originalUrl: href,
-        text: displayText,
+        id: generateId(),
+        url: normalizeUrl(href),
+        originalUrl,
+        text,
         position: {
-          offset: index, // use element index as offset approximation
+          offset: index,
         },
         context,
-        citationDate: extractCitationDate(context),
       });
     });
 
     return links;
   } catch (error) {
-    console.warn('Failed to extract links from HTML:', error);
+    // Graceful error handling for malformed HTML
+    console.error('Error extracting links from HTML:', error);
     return [];
   }
 }
 
 /**
- * Extract surrounding context from the parent element
- * 
- * @param $ - Cheerio instance
- * @param $elem - The anchor element
- * @returns Context string with surrounding text
+ * Extract surrounding context text for a link element
  */
 function extractContext(
   $: cheerio.CheerioAPI,
-  $elem: cheerio.Cheerio<Element>
+  element: cheerio.Element
 ): string {
-  // Find the closest block-level parent
-  const blockParent = $elem.closest('p, li, td, th, blockquote, div, section, article, body').first();
+  const $elem = $(element);
   
-  if (blockParent.length === 0) {
-    // Fallback to element text if no block parent found
-    return $elem.text().trim();
-  }
+  // Get parent text content
+  const parent = $elem.parent();
+  if (!parent.length) return '';
 
-  // Get full parent text
-  const parentText = blockParent.text().trim();
-  const linkText = $elem.text().trim();
-
-  // If parent text is short enough, return it as-is
-  if (parentText.length <= 150) {
-    return parentText;
-  }
-
-  // Try to extract ~100 chars centered on the link
-  const linkPosition = parentText.indexOf(linkText);
+  // Get all text from parent, which includes the link and surrounding text
+  const parentText = parent.text();
   
-  if (linkPosition === -1) {
-    // Link text not found in parent (edge case), return truncated parent
-    return parentText.substring(0, 100) + '...';
-  }
-
-  // Calculate window around link text
-  const beforeChars = 50;
-  const afterChars = 50;
+  // Get just the link text
+  const linkText = $elem.text();
   
-  const start = Math.max(0, linkPosition - beforeChars);
-  const end = Math.min(parentText.length, linkPosition + linkText.length + afterChars);
+  // Find link position in parent text
+  const linkIndex = parentText.indexOf(linkText);
+  if (linkIndex === -1) return parentText.substring(0, 100);
+
+  // Extract 50 chars before and after
+  const start = Math.max(0, linkIndex - 50);
+  const end = Math.min(parentText.length, linkIndex + linkText.length + 50);
   
   let context = parentText.substring(start, end).trim();
   
-  // Add ellipsis if we truncated
-  if (start > 0) {
-    context = '...' + context;
-  }
-  if (end < parentText.length) {
-    context = context + '...';
-  }
-
+  // Add ellipsis if truncated
+  if (start > 0) context = '...' + context;
+  if (end < parentText.length) context = context + '...';
+  
   return context;
 }
