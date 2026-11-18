@@ -77,6 +77,7 @@ export function resetArchiveBreaker(): void {
 }
 
 const THROTTLED_MESSAGE = 'The Internet Archive is limiting requests right now';
+const DEFAULT_TIMEOUT_MS = 15_000;
 export const sharedCache = new TtlCache<ArchivedSnapshot | null>(5000);
 
 /** Wayback timestamp (YYYYMMDDhhmmss, UTC) → epoch milliseconds, or NaN. */
@@ -138,7 +139,7 @@ export async function findArchivedSnapshot(
   const doFetch = deps.fetch ?? fetch;
   const limiter = deps.limiter ?? sharedLimiter;
   const cache = deps.cache ?? sharedCache;
-  const timeoutMs = deps.timeoutMs ?? 15_000;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   // Day precision is plenty for picking a snapshot and keeps the cache useful
   const day = citationDate ? toWaybackTimestamp(citationDate).slice(0, 8) : 'latest';
@@ -165,34 +166,8 @@ export async function findArchivedSnapshot(
     query.set('limit', '-5'); // newest 5
   }
 
-  if (isArchiveBlocked()) throw new WaybackError(THROTTLED_MESSAGE);
-  await limiter.waitForSlot();
-  let rows: unknown;
-  let rawSnapshotCount = 0;
-  try {
-    const response = await doFetch(`${CDX_ENDPOINT}?${query}`, {
-      headers: { 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (response.status === 429) {
-      reportArchiveThrottled();
-      throw new WaybackError(THROTTLED_MESSAGE);
-    }
-    if (!response.ok) {
-      throw new WaybackError(`The Internet Archive returned ${response.status}`);
-    }
-    rows = await response.json();
-    rawSnapshotCount = Array.isArray(rows) && rows.length > 1 ? rows.length - 1 : 0;
-  } catch (error) {
-    if (error instanceof WaybackError) throw error;
-    // fetch() wraps the socket error: TypeError('fetch failed', { cause })
-    const code = (error as { cause?: { code?: string } })?.cause?.code;
-    if (code === 'ECONNREFUSED') {
-      reportArchiveThrottled();
-      throw new WaybackError(THROTTLED_MESSAGE);
-    }
-    throw new WaybackError('The Internet Archive could not be reached');
-  }
+  const rows = await queryCdx(query, { fetch: doFetch, limiter, timeoutMs });
+  const rawSnapshotCount = Array.isArray(rows) && rows.length > 1 ? rows.length - 1 : 0;
 
   const snapshot = findClosestSnapshot(parseCdxRows(rows), citationDate);
   const result: ArchivedSnapshot | null = snapshot
@@ -217,6 +192,110 @@ export async function findArchivedSnapshot(
 
   cache.set(cacheKey, result, CACHE_TTL_MS.cdx);
   return result;
+}
+
+/**
+ * One CDX request, paced by the shared limiter and guarded by the circuit
+ * breaker. Returns the parsed JSON body.
+ *
+ * @throws WaybackError when the Archive is throttling us, unreachable or errors
+ */
+async function queryCdx(
+  query: URLSearchParams,
+  deps: { fetch: typeof fetch; limiter: SlotLimiter; timeoutMs: number }
+): Promise<unknown> {
+  if (isArchiveBlocked()) throw new WaybackError(THROTTLED_MESSAGE);
+  await deps.limiter.waitForSlot();
+  try {
+    const response = await deps.fetch(`${CDX_ENDPOINT}?${query}`, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: AbortSignal.timeout(deps.timeoutMs),
+    });
+    if (response.status === 429) {
+      reportArchiveThrottled();
+      throw new WaybackError(THROTTLED_MESSAGE);
+    }
+    if (!response.ok) {
+      throw new WaybackError(`The Internet Archive returned ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    if (error instanceof WaybackError) throw error;
+    // fetch() wraps the socket error: TypeError('fetch failed', { cause })
+    const code = (error as { cause?: { code?: string } })?.cause?.code;
+    if (code === 'ECONNREFUSED') {
+      reportArchiveThrottled();
+      throw new WaybackError(THROTTLED_MESSAGE);
+    }
+    throw new WaybackError('The Internet Archive could not be reached');
+  }
+}
+
+/** One capture in a snapshot listing. */
+export interface SnapshotListing {
+  /** Capture time, ISO 8601 (UTC). */
+  timestamp: string;
+  /** Wayback Machine URL of this capture. */
+  archiveUrl: string;
+  statusCode: string;
+  mimeType: string;
+}
+
+export interface ListSnapshotsOptions {
+  from?: Date;
+  to?: Date;
+  /** Captures to return, 1..MAX_LISTED_SNAPSHOTS (default 20). */
+  limit?: number;
+}
+
+export const MAX_LISTED_SNAPSHOTS = 100;
+const listingCache = new TtlCache<SnapshotListing[]>(1000);
+
+/**
+ * The most recent captures of `url` (within `from`..`to` if given), oldest
+ * first. Consecutive identical captures are collapsed, so each entry is a
+ * version of the page that differed from the one before. Cached for 24 hours.
+ *
+ * @throws WaybackError when the Wayback Machine is unreachable or errors
+ */
+export async function listSnapshots(
+  url: string,
+  options: ListSnapshotsOptions = {},
+  deps: Omit<WaybackDeps, 'cache'> & { cache?: TtlCache<SnapshotListing[]> } = {}
+): Promise<SnapshotListing[]> {
+  const limit = Math.min(MAX_LISTED_SNAPSHOTS, Math.max(1, Math.floor(options.limit ?? 20)));
+  const query = new URLSearchParams({
+    url,
+    output: 'json',
+    fl: 'timestamp,original,statuscode,mimetype',
+    collapse: 'digest',
+    limit: String(-limit), // newest N, still returned oldest first
+  });
+  if (options.from) query.set('from', toWaybackTimestamp(options.from));
+  if (options.to) query.set('to', toWaybackTimestamp(options.to));
+
+  const cache = deps.cache ?? listingCache;
+  const cacheKey = `list:${query}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const rows = await queryCdx(query, {
+    fetch: deps.fetch ?? fetch,
+    limiter: deps.limiter ?? sharedLimiter,
+    timeoutMs: deps.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  });
+  const listing = parseCdxRows(rows)
+    .filter((s) => !Number.isNaN(parseWaybackTimestamp(s.timestamp)))
+    .map((s) => ({
+      timestamp: new Date(parseWaybackTimestamp(s.timestamp)).toISOString(),
+      archiveUrl: `https://web.archive.org/web/${s.timestamp}/${url}`,
+      statusCode: s.statusCode,
+      mimeType: s.mimeType,
+    }));
+
+  log.info('wayback.list', { snapshots: listing.length });
+  cache.set(cacheKey, listing, CACHE_TTL_MS.cdx);
+  return listing;
 }
 
 /** CDX JSON (header row + data rows) → snapshots. Ignores malformed rows. */
