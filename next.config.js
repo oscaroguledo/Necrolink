@@ -8,19 +8,9 @@ const nextConfig = {
     // pdf.js loads its worker and optional canvas at runtime; let Node require it
     serverComponentsExternalPackages: ['pdfjs-dist'],
   },
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
-        ],
-      },
-    ];
-  },
+  // No CORS headers: the API is only called by Necrolink's own pages. Allowing
+  // every origin would let any website use this server to fetch URLs and spend
+  // the Internet Archive and AI budgets.
 };
 
 module.exports = nextConfig;
