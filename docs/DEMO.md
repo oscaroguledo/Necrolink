@@ -55,9 +55,10 @@ Switch to the editor.
 - `.kiro/steering/`: "Steering docs kept the theme, conventions and API rules consistent."
 - `.kiro/hooks/`: "Hooks ran the tests on every save and kept the README in sync with the specs."
 - `.agents/tasks/`: "Kiro wrote implementation plans and reviewed its own work."
+- `.kiro/settings/mcp.json` + `mcp-wayback/`: show Kiro's chat calling `find_snapshot` or `list_snapshots` (e.g. "When did Google Reader stop being archived as a working page?"). "The same archive tools as the app, available to Kiro while I write."
 - [BUGS_FOUND.md](../BUGS_FOUND.md): "Property-based tests caught real bugs: picking the closest snapshot by subtracting timestamps as numbers made a 1-second gap look 8.87 billion apart."
 
-*(Describe only what you actually did in Kiro; judges compare this with the repository.)*
+*(Describe only what you actually did in Kiro; judges compare this with the repository. Each MCP call is a real Archive request: rehearse once, then record.)*
 
 ### 2:40–3:00 Close
 Back to the graveyard.

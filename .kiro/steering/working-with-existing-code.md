@@ -37,7 +37,7 @@ hid it (see BUGS_FOUND.md). These rules prevent that.
 ## Before saying a task is done
 
 ```bash
-npx tsc --noEmit && npx tsc --noEmit -p tests && npx eslint src tests --max-warnings 0 && npx vitest run && npm run build
+npx tsc --noEmit && npx tsc --noEmit -p tests && npx eslint src tests mcp-wayback --max-warnings 0 && npx vitest run && npm run build
 ```
 
 All five must pass. Report failures as they are; do not hide them.

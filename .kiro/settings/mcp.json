@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "necrolink-wayback": {
+      "command": "npx",
+      "args": ["tsx", "mcp-wayback/server.ts"],
+      "env": {
+        "WAYBACK_MAX_PER_MINUTE": "12",
+        "WAYBACK_BURST": "5"
+      },
+      "disabled": false,
+      "autoApprove": ["find_snapshot", "list_snapshots"]
+    }
+  }
+}

@@ -33,9 +33,9 @@ You get back a fixed document with dead links replaced by archive URLs and zombi
 
 ## 🎯 Current Status
 
-Built for the Kiroween 2026 hackathon. Extraction, checking, zombie detection, export and the graveyard interface all work end to end: 516 tests, including property-based tests with fast-check (see [BUGS_FOUND.md](BUGS_FOUND.md) for what they caught).
+Built for the Kiroween 2026 hackathon. Extraction, checking, zombie detection, export and the graveyard interface all work end to end: 560 tests, including property-based tests with fast-check (see [BUGS_FOUND.md](BUGS_FOUND.md) for what they caught).
 
-Kiro workflow: spec-driven development (`.kiro/specs/`), steering docs (`.kiro/steering/`), agent hooks (`.kiro/hooks/`) and Kiro's task plans and reviews (`.agents/tasks/`). A Wayback Machine MCP server is planned (`mcp-wayback/`).
+Kiro workflow: spec-driven development (`.kiro/specs/`), steering docs (`.kiro/steering/`), agent hooks (`.kiro/hooks/`), Kiro's task plans and reviews (`.agents/tasks/`), and a Wayback Machine MCP server ([`mcp-wayback/`](mcp-wayback/README.md)) that gives Kiro the same archive tools as the app.
 
 ## 🚀 Quick Start
 
@@ -90,12 +90,13 @@ Live tests against the real Wayback Machine: `NETWORK_TESTS=1 npx vitest run tes
 - **APIs**: Internet Archive Wayback Machine CDX API
 - **Deployment**: any Node.js host (Vercel-compatible)
 - **Testing**: Vitest with fast-check property-based testing
-- **Development**: Kiro IDE (specs, steering, hooks)
+- **Development**: Kiro IDE (specs, steering, hooks, MCP)
 
 ## 📚 Documentation
 
 - [API Reference](docs/API.md) - `POST /api/extract`, `POST /api/check` and `POST /api/export`
 - [Bugs Found by Property Tests](BUGS_FOUND.md) - What fast-check caught and how each bug was fixed
+- [Wayback MCP Server](mcp-wayback/README.md) - `find_snapshot`, `list_snapshots` and `check_link` for Kiro
 - [Demo Video Guide](docs/DEMO.md) - The demo document, what each link shows, and a 3-minute script
 - [Product Vision](/.kiro/steering/product-vision.md) - The spooky theme and user experience
 - [Technical Conventions](/.kiro/steering/technical-conventions.md) - Code standards and patterns
