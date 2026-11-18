@@ -36,7 +36,7 @@ export function Graveyard({ links, results, selected, onToggle }: Props) {
           </span>
         );
         const cards = (
-          <ul className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="mt-5 grid gap-5 [perspective:1200px] md:grid-cols-2 xl:grid-cols-3">
             {items.map(({ link, result }) => (
               <LinkCard
                 key={link.id}
@@ -64,7 +64,7 @@ export function Graveyard({ links, results, selected, onToggle }: Props) {
               </details>
             ) : (
               <>
-                <h2>{heading}</h2>
+                <h2 className="creep-in">{heading}</h2>
                 <p className="mt-1 max-w-2xl text-pretty text-sm text-mist-muted">{style.blurb}</p>
                 {cards}
               </>

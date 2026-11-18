@@ -110,7 +110,13 @@ body {
   background-attachment: fixed;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-x: hidden;
+}
+
+/* Effects may poke past the edge for a moment; never let the page pan sideways
+   (clip, unlike hidden, keeps the sticky export bar working) */
+html,
+body {
+  overflow-x: clip;
 }
 
 /* ---------- Stone ---------- */
@@ -157,6 +163,7 @@ body {
 
 /* Glowing, dripping title */
 .spooky-title {
+  position: relative;
   color: #d9f99d;
   text-shadow:
     0 0 18px rgba(163, 230, 53, 0.35),
@@ -376,6 +383,252 @@ body {
   }
   75% {
     transform: translate(1px, -1px) rotate(0.4deg);
+  }
+}
+
+/* ---------- 3D scene hand-off ---------- */
+
+/* Once the WebGL graveyard is running, the CSS one fades out */
+.css-atmosphere {
+  transition: opacity 1.5s ease;
+}
+html[data-scene='3d'] .css-atmosphere {
+  opacity: 0;
+}
+
+/* Lightning: two soft flashes, never more than 2 per second */
+.lightning {
+  animation: lightning 0.7s ease-out forwards;
+}
+@keyframes lightning {
+  0% {
+    opacity: 0.16;
+  }
+  15% {
+    opacity: 0;
+  }
+  80% {
+    opacity: 0.09;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Creatures ---------- */
+
+.spider-drop {
+  transform: translateY(-40px);
+}
+.spirit-dot {
+  background: radial-gradient(circle, #ecfdf5 0%, #6ee7b7 45%, rgba(110, 231, 183, 0) 70%);
+  box-shadow: 0 0 14px 4px rgba(110, 231, 183, 0.35);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spider-drop {
+    animation: spider-drop 14s ease-in-out infinite;
+  }
+  .legs-left {
+    animation: legs 0.5s ease-in-out infinite alternate;
+    transform-origin: 26px 26px;
+  }
+  .legs-right {
+    animation: legs 0.5s ease-in-out infinite alternate-reverse;
+    transform-origin: 34px 26px;
+  }
+  .slime-drip {
+    animation: slime-drip 4.5s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: top;
+  }
+  .slime-drop {
+    animation: slime-drop 4.5s ease-in infinite;
+    transform-box: fill-box;
+  }
+  .title-flicker {
+    animation: title-flicker 7s linear infinite;
+  }
+  .twitch {
+    animation: twitch 7s ease-in-out infinite;
+  }
+  .pulse-glow {
+    animation: pulse-glow 2.4s ease-in-out infinite;
+  }
+  .count-pop {
+    animation: count-pop 0.5s ease-out;
+  }
+  .resurrect-burst::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 2px solid rgba(252, 165, 165, 0.8);
+    opacity: 0;
+    animation: burst 1.4s ease-out 0.3s backwards;
+    pointer-events: none;
+  }
+  .creep-in {
+    animation: creep-in 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .stone-breathe {
+    animation: stone-breathe 6s ease-in-out infinite;
+  }
+}
+
+@keyframes spider-drop {
+  0%,
+  12% {
+    transform: translateY(-120px);
+  }
+  30% {
+    transform: translateY(10px);
+  }
+  34% {
+    transform: translateY(-4px);
+  }
+  38%,
+  62% {
+    transform: translateY(4px);
+  }
+  80%,
+  100% {
+    transform: translateY(-120px);
+  }
+}
+
+@keyframes legs {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes slime-drip {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+  }
+  60% {
+    transform: scaleY(1.1);
+  }
+  70% {
+    transform: scaleY(0.75);
+  }
+}
+
+@keyframes slime-drop {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  66% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+
+@keyframes title-flicker {
+  0%,
+  89%,
+  91%,
+  94%,
+  100% {
+    opacity: 1;
+  }
+  90%,
+  93% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes twitch {
+  0%,
+  92%,
+  100% {
+    transform: none;
+  }
+  93% {
+    transform: translateX(-2px) rotate(-0.6deg);
+  }
+  95% {
+    transform: translateX(2px) rotate(0.5deg);
+  }
+  97% {
+    transform: translateX(-1px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(52, 211, 153, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 34px rgba(52, 211, 153, 0.75),
+      0 0 60px rgba(52, 211, 153, 0.25);
+  }
+}
+
+@keyframes count-pop {
+  0% {
+    transform: scale(1.7);
+    color: #ecfdf5;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes burst {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 30px rgba(252, 165, 165, 0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    box-shadow: 0 0 0 rgba(252, 165, 165, 0);
+  }
+}
+
+@keyframes creep-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) skewX(-6deg);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes stone-breathe {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 -14px 24px -12px rgba(0, 0, 0, 0.55),
+      0 18px 40px -18px rgba(0, 0, 0, 0.8),
+      0 0 0 rgba(110, 231, 183, 0);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 -14px 24px -12px rgba(0, 0, 0, 0.55),
+      0 18px 40px -18px rgba(0, 0, 0, 0.8),
+      0 0 46px rgba(110, 231, 183, 0.16);
   }
 }
 

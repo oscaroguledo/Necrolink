@@ -32,7 +32,7 @@ function Bat() {
 
 export function Atmosphere() {
   return (
-    <div aria-hidden="true" data-decor className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div aria-hidden="true" data-decor className="css-atmosphere pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       {/* Moon */}
       <div className="moon absolute right-[3%] top-[0.5%] size-10 rounded-full opacity-70 sm:right-[3%] sm:top-[2%] sm:size-16 sm:opacity-80 lg:right-[6%] lg:top-[5%] lg:size-28 xl:size-32" />
 

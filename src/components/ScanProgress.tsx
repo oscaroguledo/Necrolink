@@ -85,7 +85,9 @@ export function ScanProgress({ filename, total, counts, checking, onCancel }: Pr
               className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition hover:brightness-125 ${STATUS[s].border} ${STATUS[s].bg} ${STATUS[s].text}`}
             >
               <StatusEmoji status={s} />
-              <span className="font-semibold tabular-nums">{counts[s]}</span>
+              <span key={counts[s]} className="count-pop inline-block font-semibold tabular-nums">
+                {counts[s]}
+              </span>
               <span>{counts[s] === 1 ? STATUS[s].label : STATUS[s].plural}</span>
             </a>
           </li>

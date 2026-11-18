@@ -11,7 +11,10 @@ import {
   type ExtractedDocument,
 } from '@/lib/client/api';
 import { DEMO_DOCUMENT, DEMO_FILENAME } from '@/lib/client/demo';
+import { MotionConfig } from 'framer-motion';
 import { UploadZone } from './UploadZone';
+import { SlimeDrips } from './effects/SlimeDrips';
+import { Tilt } from './effects/Tilt';
 import { ScanProgress } from './ScanProgress';
 import { Graveyard } from './Graveyard';
 import { ExportBar } from './ExportBar';
@@ -33,7 +36,10 @@ export function NecrolinkApp() {
   const abortRef = useRef<AbortController | undefined>(undefined);
 
   const counts = useMemo(() => {
-    const c = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<ResultStatus, number>;
+    const c = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<
+      ResultStatus,
+      number
+    >;
     for (const r of results.values()) c[r.status as ResultStatus]++;
     return c;
   }, [results]);
@@ -49,7 +55,8 @@ export function NecrolinkApp() {
     setPhase('extracting');
 
     try {
-      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const isPdf =
+        file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
       const [extracted, text] = await Promise.all([
         extractDocument(file, controller.signal),
         isPdf ? Promise.resolve(undefined) : file.text(),
@@ -63,14 +70,19 @@ export function NecrolinkApp() {
         (result) => {
           setResults((prev) => new Map(prev).set(result.linkId, result));
           // Selected for fixing by default; the user can untick any of them
-          if (FIXABLE.has(result.status)) setSelected((prev) => new Set(prev).add(result.linkId));
+          if (FIXABLE.has(result.status))
+            setSelected((prev) => new Set(prev).add(result.linkId));
         },
         controller.signal
       );
       setPhase('done');
     } catch (e) {
       if (controller.signal.aborted) return;
-      setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : 'Something went wrong. Please try again.'
+      );
       setPhase((p) => (p === 'checking' ? 'done' : 'idle'));
     }
   }, []);
@@ -104,11 +116,25 @@ export function NecrolinkApp() {
     setExporting(true);
     setError(undefined);
     try {
-      const file = await exportDocument(doc, content, [...results.values()], selected);
+      const file = await exportDocument(
+        doc,
+        content,
+        [...results.values()],
+        selected
+      );
       if (mode === 'download') saveFile(file);
-      else setPreview(file.text.length > 200_000 ? `${file.text.slice(0, 200_000)}\n\n… (preview truncated)` : file.text);
+      else
+        setPreview(
+          file.text.length > 200_000
+            ? `${file.text.slice(0, 200_000)}\n\n… (preview truncated)`
+            : file.text
+        );
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'The export failed. Please try again.');
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : 'The export failed. Please try again.'
+      );
     } finally {
       setExporting(false);
     }
@@ -117,101 +143,155 @@ export function NecrolinkApp() {
   const fixCount = [...selected].filter((id) => results.has(id)).length;
 
   return (
-    <main
-      data-phase={phase}
-      className="mx-auto min-h-dvh w-full max-w-6xl px-4 pb-[clamp(7rem,24vh,15rem)] pt-8 sm:px-6 sm:pt-12 lg:px-8"
-    >
-      <header className="mb-8 text-center sm:mb-12">
-        <h1 className="font-spooky text-[clamp(2.75rem,11vw,5.5rem)] leading-none">
-          <span className="spooky-title inline-flex items-center gap-2 sm:gap-4">
-            <span aria-hidden="true" className="ghost-bob inline-block text-[0.8em]">
-              👻
+    <MotionConfig reducedMotion="user">
+      <main
+        data-phase={phase}
+        className="mx-auto min-h-dvh w-full max-w-6xl px-4 pb-[clamp(7rem,24vh,15rem)] pt-8 sm:px-6 sm:pt-12 lg:px-8"
+      >
+        <header className="mb-8 text-center sm:mb-12">
+          <h1 className="font-spooky text-[clamp(2.75rem,11vw,5.5rem)] leading-none">
+            <span className="spooky-title title-flicker inline-flex items-center gap-2 sm:gap-4">
+              <span
+                aria-hidden="true"
+                className="ghost-bob inline-block text-[0.8em]"
+              >
+                👻
+              </span>
+              <span className="relative">
+                Necrolink
+                <SlimeDrips />
+              </span>
             </span>
-            Necrolink
-          </span>
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-pretty text-base text-mist-muted sm:text-lg">
-          Find the dead and zombie links in your papers, then raise them from the Internet Archive.
-        </p>
-      </header>
+          </h1>
+          <p className="mx-auto mt-7 max-w-xl text-pretty text-base text-mist-muted [text-shadow:0_2px_12px_#000] sm:mt-9 sm:text-lg">
+            Find the dead and zombie links in your papers, then raise them from
+            the Internet Archive.
+          </p>
+        </header>
 
-      {error && (
-        <div
-          role="alert"
-          className="mx-auto mb-6 flex max-w-2xl items-start gap-3 rounded-xl border border-status-ghost/50 bg-status-ghost/10 px-4 py-3 text-status-ghost"
-        >
-          <span aria-hidden="true" className="text-xl leading-none">
-            🦇
-          </span>
-          <p>{error}</p>
-        </div>
-      )}
-
-      {phase === 'idle' && (
-        <>
-          <UploadZone onFile={start} onDemo={() => start(new File([DEMO_DOCUMENT], DEMO_FILENAME, { type: 'text/markdown' }))} />
-          <ul
-            className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-3 text-sm sm:mt-14 sm:gap-4 lg:grid-cols-4"
-            aria-label="What Necrolink finds"
+        {error && (
+          <div
+            role="alert"
+            className="mx-auto mb-6 flex max-w-2xl items-start gap-3 rounded-xl border border-status-ghost/50 bg-status-ghost/10 px-4 py-3 text-status-ghost"
           >
-            {(['ghost', 'zombie', 'lost', 'living'] as const).map((s) => (
-              <li key={s} className={`tombstone stone mossy haunt border px-3 pb-5 pt-5 text-center sm:px-4 ${STATUS[s].border}`}>
-                <ScanLegend status={s} />
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+            <span aria-hidden="true" className="text-xl leading-none">
+              🦇
+            </span>
+            <p>{error}</p>
+          </div>
+        )}
 
-      {phase === 'extracting' && <Digging />}
-
-      {doc && (phase === 'checking' || phase === 'done') && (
-        <div className="space-y-10 sm:space-y-12">
-          <ScanProgress filename={doc.filename} total={doc.links.length} counts={counts} checking={phase === 'checking'} onCancel={cancel} />
-          <Graveyard links={doc.links} results={results} selected={selected} onToggle={toggle} />
-          {phase === 'done' && results.size > 0 && (
-            <ExportBar
-              isReport={doc.type === 'pdf'}
-              fixCount={fixCount}
-              busy={exporting}
-              preview={preview}
-              onPreview={() => runExport('preview')}
-              onClosePreview={() => setPreview(undefined)}
-              onDownload={() => runExport('download')}
-              onReset={reset}
+        {phase === 'idle' && (
+          <>
+            <UploadZone
+              onFile={start}
+              onDemo={() =>
+                start(
+                  new File([DEMO_DOCUMENT], DEMO_FILENAME, {
+                    type: 'text/markdown',
+                  })
+                )
+              }
             />
-          )}
-        </div>
-      )}
+            <ul
+              className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-3 text-sm [perspective:1000px] sm:mt-14 sm:gap-4 lg:grid-cols-4"
+              aria-label="What Necrolink finds"
+            >
+              {(['ghost', 'zombie', 'lost', 'living'] as const).map((s) => (
+                <li key={s} className="list-none">
+                  <Tilt
+                    max={10}
+                    className={`tombstone stone mossy h-full border px-3 pb-5 pt-5 text-center sm:px-4 ${STATUS[s].border}`}
+                  >
+                    <ScanLegend status={s} />
+                  </Tilt>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
-      <footer className="mt-16 text-pretty text-center text-xs text-mist-faint sm:mt-20">
-        Archived copies come from the{' '}
-        <a href="https://web.archive.org/" target="_blank" rel="noopener noreferrer" className="underline hover:text-mist">
-          Internet Archive Wayback Machine
-        </a>
-        . Built for Kiroween 2026.
-      </footer>
-    </main>
+        {phase === 'extracting' && <Digging />}
+
+        {doc && (phase === 'checking' || phase === 'done') && (
+          <div className="space-y-10 sm:space-y-12">
+            <ScanProgress
+              filename={doc.filename}
+              total={doc.links.length}
+              counts={counts}
+              checking={phase === 'checking'}
+              onCancel={cancel}
+            />
+            <Graveyard
+              links={doc.links}
+              results={results}
+              selected={selected}
+              onToggle={toggle}
+            />
+            {phase === 'done' && results.size > 0 && (
+              <ExportBar
+                isReport={doc.type === 'pdf'}
+                fixCount={fixCount}
+                busy={exporting}
+                preview={preview}
+                onPreview={() => runExport('preview')}
+                onClosePreview={() => setPreview(undefined)}
+                onDownload={() => runExport('download')}
+                onReset={reset}
+              />
+            )}
+          </div>
+        )}
+
+        <footer className="mt-16 text-pretty text-center text-xs text-mist-faint sm:mt-20">
+          Archived copies come from the{' '}
+          <a
+            href="https://web.archive.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-mist"
+          >
+            Internet Archive Wayback Machine
+          </a>
+          . Built for Kiroween 2026.
+        </footer>
+      </main>
+    </MotionConfig>
   );
 }
 
 /** Shown while the document is read: a shovel at work and graves rising. */
 function Digging() {
   return (
-    <section aria-labelledby="digging-heading" className="mx-auto max-w-2xl text-center">
+    <section
+      aria-labelledby="digging-heading"
+      className="mx-auto max-w-2xl text-center"
+    >
       <p aria-hidden="true" className="dig inline-block text-5xl sm:text-6xl">
         ⚰️
       </p>
-      <h2 id="digging-heading" className="mt-4 font-display text-2xl text-mist sm:text-3xl" aria-live="polite">
+      <h2
+        id="digging-heading"
+        className="mt-4 font-display text-2xl text-mist sm:text-3xl"
+        aria-live="polite"
+      >
         Digging up the links…
       </h2>
-      <p className="mt-2 text-sm text-mist-muted">Reading your document. Nothing is stored.</p>
-      <div aria-hidden="true" className="mt-10 flex items-end justify-center gap-3 sm:gap-5">
+      <p className="mt-2 text-sm text-mist-muted">
+        Reading your document. Nothing is stored.
+      </p>
+      <div
+        aria-hidden="true"
+        className="mt-10 flex items-end justify-center gap-3 sm:gap-5"
+      >
         {[0, 0.25, 0.5].map((delay, i) => (
           <div
             key={i}
             className="tombstone stone rise-up w-20 border border-night-600 sm:w-28"
-            style={{ height: `${[5.5, 7, 6][i]}rem`, animationDelay: `${delay}s` }}
+            style={{
+              height: `${[5.5, 7, 6][i]}rem`,
+              animationDelay: `${delay}s`,
+            }}
           >
             <div className="mx-auto mt-6 h-2 w-10 rounded bg-night-600/80 sm:w-14" />
             <div className="mx-auto mt-2 h-2 w-8 rounded bg-night-600/60 sm:w-10" />
@@ -222,7 +302,11 @@ function Digging() {
   );
 }
 
-function ScanLegend({ status }: { status: 'ghost' | 'zombie' | 'lost' | 'living' }) {
+function ScanLegend({
+  status,
+}: {
+  status: 'ghost' | 'zombie' | 'lost' | 'living';
+}) {
   const text = {
     ghost: ['👻', 'Ghosts', 'Dead links, raised from the archive'],
     zombie: ['🧟', 'Zombies', 'Still load, but the content changed'],
@@ -231,11 +315,20 @@ function ScanLegend({ status }: { status: 'ghost' | 'zombie' | 'lost' | 'living'
   }[status];
   return (
     <>
-      <p aria-hidden="true" className={`text-2xl sm:text-3xl ${status === 'living' ? 'flicker' : ''}`}>
+      <p
+        aria-hidden="true"
+        className={`text-2xl sm:text-3xl ${status === 'living' ? 'flicker' : ''}`}
+      >
         {text[0]}
       </p>
-      <p className={`engraved mt-2 font-display text-lg ${STATUS[status].text}`}>{text[1]}</p>
-      <p className="mt-1 text-pretty text-xs text-mist-muted sm:text-sm">{text[2]}</p>
+      <p
+        className={`engraved mt-2 font-display text-lg ${STATUS[status].text}`}
+      >
+        {text[1]}
+      </p>
+      <p className="mt-1 text-pretty text-xs text-mist-muted sm:text-sm">
+        {text[2]}
+      </p>
     </>
   );
 }

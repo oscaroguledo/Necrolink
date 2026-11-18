@@ -55,7 +55,7 @@ export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClos
               type="button"
               disabled={busy}
               onClick={onDownload}
-              className="min-h-11 rounded-full bg-status-living px-5 py-2 text-sm font-bold text-night shadow-[0_0_24px_rgba(52,211,153,0.45)] transition hover:bg-emerald-200 hover:shadow-[0_0_36px_rgba(52,211,153,0.65)] disabled:opacity-50"
+              className="pulse-glow min-h-11 rounded-full bg-status-living px-5 py-2 text-sm font-bold text-night shadow-[0_0_24px_rgba(52,211,153,0.45)] transition hover:bg-emerald-200 hover:shadow-[0_0_36px_rgba(52,211,153,0.65)] disabled:opacity-50"
             >
               <span aria-hidden="true">⚡ </span>
               {busy ? 'Preparing…' : `Download ${what}`}

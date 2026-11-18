@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Creepster, IM_Fell_English } from 'next/font/google';
 import { Atmosphere } from '@/components/Atmosphere';
+import { Graveyard3D } from '@/components/Graveyard3D';
+import { Spider } from '@/components/effects/Spider';
+import { SpiritCursor } from '@/components/effects/SpiritCursor';
 import './globals.css';
 
 // Self-hosted at build time by next/font: no requests to Google from visitors
@@ -31,6 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${creepster.variable} ${fell.variable}`}>
       <body className="relative isolate font-sans antialiased">
         <Atmosphere />
+        <Graveyard3D />
+        <Spider className="left-[5%] hidden sm:block" />
+        <Spider className="right-[22%] hidden xl:block [&_.spider-drop]:[animation-delay:-6s]" />
+        <SpiritCursor />
         {children}
       </body>
     </html>

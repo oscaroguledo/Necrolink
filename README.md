@@ -84,7 +84,7 @@ Live tests against the real Wayback Machine: `NETWORK_TESTS=1 npx vitest run tes
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 14, React, TypeScript
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, framer-motion, three.js (3D graveyard)
 - **Backend**: Node.js API routes
 - **AI**: Kiro API (zombie detection)
 - **APIs**: Internet Archive Wayback Machine CDX API
