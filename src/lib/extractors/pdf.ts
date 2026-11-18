@@ -108,14 +108,15 @@ export async function extractLinksFromPDF(
     return [];
   }
 
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
 
   let doc;
   const loadingTask = pdfjs.getDocument({
       data: bytes,
-      // Security: pdf.js < 4.2.67 can run attacker-controlled JS via font
-      // compilation (CVE-2024-4367). Disabling eval closes that hole.
-      isEvalSupported: false,
+      // Security: pdf.js < 4.2.67 could run attacker-controlled JS through
+      // font compilation (CVE-2024-4367). pdf.js 6 no longer compiles code at
+      // all (no eval / new Function; guarded by a test), so there is no
+      // isEvalSupported option to set any more. Keep pdfjs-dist >= 4.2.67.
       disableFontFace: true,
       useSystemFonts: false,
       verbosity: 0,

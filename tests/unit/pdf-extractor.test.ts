@@ -200,3 +200,14 @@ describe('PDF Link Extractor', () => {
     });
   });
 });
+
+describe('pdf.js security (CVE-2024-4367)', () => {
+  // pdf.js < 4.2.67 compiled font code with eval / new Function, letting a
+  // malicious PDF run JavaScript. Current versions removed that code path;
+  // fail loudly if an upgrade or downgrade brings it back.
+  test.each(['pdf.mjs', 'pdf.worker.mjs'])('legacy/build/%s never compiles code', async (file) => {
+    const source = await readFile(join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build', file), 'utf8');
+    expect(source).not.toMatch(/new Function\(/);
+    expect(source).not.toMatch(/(^|[^\w.$])eval\(/m);
+  });
+});
