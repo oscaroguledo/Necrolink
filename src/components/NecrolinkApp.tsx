@@ -30,7 +30,7 @@ export function NecrolinkApp() {
   const [error, setError] = useState<string>();
   const [exporting, setExporting] = useState(false);
   const [preview, setPreview] = useState<string>();
-  const abortRef = useRef<AbortController>();
+  const abortRef = useRef<AbortController | undefined>(undefined);
 
   const counts = useMemo(() => {
     const c = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0])) as Record<ResultStatus, number>;
