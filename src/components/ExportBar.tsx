@@ -27,7 +27,7 @@ export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClos
 
   return (
     <>
-      <div className="sticky bottom-4 z-10 mt-10 rounded-2xl border border-night-600 bg-night-900/95 p-4 shadow-2xl shadow-black/50 backdrop-blur">
+      <div className="sticky bottom-4 z-10 mt-10 rounded-2xl border border-night-600 bg-night-900/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-mist-muted">
             {isReport
@@ -74,7 +74,7 @@ export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClos
           </button>
         </div>
         {/* Shown as text, never rendered: the content includes other sites' titles */}
-        <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words p-5 font-mono text-xs leading-relaxed text-mist">
+        <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap wrap-break-word p-5 font-mono text-xs leading-relaxed text-mist">
           {preview}
         </pre>
       </dialog>

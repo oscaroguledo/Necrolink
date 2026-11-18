@@ -58,7 +58,7 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
             <StatusEmoji status={status} /> {style.label}
             {where(link) && <span className="ml-2 font-normal normal-case tracking-normal text-mist-faint">· {where(link)}</span>}
           </p>
-          <h3 className="mt-1 break-words font-display text-lg text-mist">{link.text || link.originalUrl}</h3>
+          <h3 className="mt-1 wrap-break-word font-display text-lg text-mist">{link.text || link.originalUrl}</h3>
         </div>
         {fixable && (
           <div className="flex shrink-0 items-center gap-2 pt-1">

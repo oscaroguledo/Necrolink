@@ -1,6 +1,88 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-night-600: #2a3544;
+  --color-night-700: #1e2733;
+  --color-night-800: #151c25;
+  --color-night-900: #0f141b;
+  --color-night: #0b0e13;
+
+  --color-mist: #e6edf3;
+  --color-mist-muted: #a3b1bf;
+  --color-mist-faint: #738396;
+
+  --color-status-ghost: #fca5a5;
+  --color-status-zombie: #fcd34d;
+  --color-status-lost: #cbd5e1;
+  --color-status-living: #6ee7b7;
+  --color-status-error: #fdba74;
+
+  --color-graveyard-stone: #4a5568;
+  --color-graveyard-moss: #2d3748;
+  --color-graveyard-fog: #edf2f7;
+  --color-graveyard-ghost: #e2e8f0;
+  --color-graveyard-zombie: #fbbf24;
+  --color-graveyard-living: #10b981;
+  --color-graveyard-dead: #ef4444;
+
+  --animate-tombstone-rise: rise 0.6s ease-out;
+  --animate-ghost-float: float 3s ease-in-out infinite;
+  --animate-zombie-shamble: shamble 2s ease-in-out infinite;
+
+  --font-display: Georgia, Cambria, 'Times New Roman', serif;
+
+  @keyframes rise {
+    0% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+  @keyframes shamble {
+    0%,
+    100% {
+      transform: translateX(0px) rotate(0deg);
+    }
+    25% {
+      transform: translateX(-5px) rotate(-2deg);
+    }
+    75% {
+      transform: translateX(5px) rotate(2deg);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 :root {
   color-scheme: dark;
