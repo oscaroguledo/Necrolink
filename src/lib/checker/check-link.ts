@@ -14,6 +14,7 @@
 import type { ArchivedSnapshot, CheckResult } from '@/types/link';
 import { safeFetch, type FetchResult, type SafeFetchOptions } from './safe-fetch';
 import { classify, type Classification } from './classify';
+import { isOnline as defaultIsOnline } from './connectivity';
 import { findArchivedSnapshot, WaybackError } from '@/lib/wayback/cdx';
 import { TtlCache, CACHE_TTL_MS } from '@/lib/wayback/cache';
 import { detectZombie, type ZombieInput, type AiBudget } from '@/lib/zombie/detector';
@@ -34,6 +35,8 @@ export interface CheckDeps {
   detectZombie?: ((input: ZombieInput, signal?: AbortSignal) => Promise<ZombieReport>) | null;
   /** AI calls left for this request (shared across its links). */
   aiBudget?: AiBudget;
+  /** Is this server online? Checked before blaming a link for a network failure. */
+  isOnline?: () => Promise<boolean>;
   now?: () => Date;
 }
 
@@ -59,6 +62,18 @@ export async function checkLink(
     if (!health) {
       const fetched = await fetchStatus(link.url, { signal });
       health = { fetch: fetched, classification: classify(fetched, link.url) };
+
+      // A network-level failure may be OUR outage, not the site's: confirm we
+      // are online before declaring the link dead (and never cache it if not)
+      if (health.classification.verdict === 'dead' && fetched.error && !(await (deps.isOnline ?? defaultIsOnline)())) {
+        return {
+          ...base,
+          status: 'error',
+          reason: "Necrolink's server could not reach the internet, so this link was not checked. Try again in a few minutes.",
+          error: 'SERVER_OFFLINE',
+          checkedAt: now(),
+        };
+      }
       // Don't cache "couldn't check" results; they may work next time
       if (health.classification.verdict !== 'unchecked') {
         healthCache.set(link.url, health, CACHE_TTL_MS.health);

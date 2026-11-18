@@ -212,6 +212,19 @@ describe('safeFetch', () => {
       expect(result).toMatchObject({ error: 'INVALID_URL', attempts: 0 });
     });
 
+    test('a DNS timeout (EAI_AGAIN) is temporary and retried, not "domain gone"', async () => {
+      sleeps.length = 0;
+      const result = await safeFetch('http://flaky-dns.test/', {
+        ...localOnly,
+        maxRetries: 1,
+        resolve: async () => {
+          throw Object.assign(new Error('getaddrinfo EAI_AGAIN'), { code: 'EAI_AGAIN' });
+        },
+      });
+      expect(result.error).toBe('DNS_TEMPORARY');
+      expect(sleeps.length).toBeGreaterThan(0);
+    });
+
     test('DNS failure is reported once, with no retry or GET fallback', async () => {
       const result = await safeFetch('http://does-not-exist.test/', localOnly);
       expect(result).toMatchObject({ error: 'DNS_NOT_FOUND', attempts: 1 });

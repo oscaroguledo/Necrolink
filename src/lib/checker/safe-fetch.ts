@@ -30,7 +30,9 @@ export type FetchErrorCode =
   | 'CONNECTION_RESET'
   | 'TLS_ERROR'
   | 'TOO_MANY_REDIRECTS'
-  | 'NETWORK_ERROR';
+  | 'NETWORK_ERROR'
+  /** The DNS lookup timed out (EAI_AGAIN): the domain may well exist. */
+  | 'DNS_TEMPORARY';
 
 export interface FetchResult {
   /** HTTP status of the final response, if one was received. */
@@ -282,7 +284,10 @@ function classifyError(err: unknown): { code: FetchErrorCode; message: string } 
   const code = (err as { code?: string })?.code ?? '';
   const message = err instanceof Error ? err.message : String(err);
   if (err instanceof BlockedAddressError) return { code: 'BLOCKED_ADDRESS', message };
-  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code === 'ENODATA') {
+  if (code === 'EAI_AGAIN') {
+    return { code: 'DNS_TEMPORARY', message: 'The DNS lookup timed out' };
+  }
+  if (code === 'ENOTFOUND' || code === 'ENODATA') {
     return { code: 'DNS_NOT_FOUND', message: 'Domain does not exist (DNS lookup failed)' };
   }
   if (code === 'ETIMEDOUT' || code === 'ABORT_ERR' || (err as Error)?.name === 'AbortError') {
@@ -303,7 +308,7 @@ function classifyError(err: unknown): { code: FetchErrorCode; message: string } 
 // ---------------------------------------------------------------------------
 
 const RETRY_STATUSES = new Set([429, 503]);
-const RETRY_ERRORS = new Set<FetchErrorCode>(['TIMEOUT', 'CONNECTION_RESET', 'NETWORK_ERROR']);
+const RETRY_ERRORS = new Set<FetchErrorCode>(['TIMEOUT', 'CONNECTION_RESET', 'NETWORK_ERROR', 'DNS_TEMPORARY']);
 
 /**
  * Fetch a URL's final status: HEAD first, GET if HEAD fails or is rejected,

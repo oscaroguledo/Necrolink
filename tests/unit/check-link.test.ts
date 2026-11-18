@@ -37,6 +37,7 @@ function setup(fetchResult: Partial<FetchResult>, snapshot: ArchivedSnapshot | n
     findSnapshot,
     healthCache: new TtlCache(),
     detectZombie: null, // content comparison is tested separately below
+    isOnline: async () => true,
     now: () => NOW,
   };
   return { deps, fetchStatus, findSnapshot };
@@ -200,4 +201,29 @@ describe('checkLink', () => {
       expect(result.reason).toMatch(/different site/);
     });
   });
+
+  describe('when the server itself is offline', () => {
+    test('a network-level failure is not blamed on the link, and is not cached', async () => {
+      const { deps, fetchStatus, findSnapshot } = setup({ error: 'DNS_NOT_FOUND' });
+      const offline = { ...deps, isOnline: async () => false };
+
+      const result = await checkLink(link, offline);
+      expect(result).toMatchObject({ status: 'error', error: 'SERVER_OFFLINE' });
+      expect(result.reason).toMatch(/could not reach the internet/);
+      expect(findSnapshot).not.toHaveBeenCalled();
+
+      // Back online: checked again, not served a stale verdict
+      await checkLink(link, { ...deps, isOnline: async () => true });
+      expect(fetchStatus).toHaveBeenCalledTimes(2);
+    });
+
+    test('an HTTP 404 is still dead without asking (the server answered)', async () => {
+      const isOnline = vi.fn(async () => false);
+      const { deps } = setup({ status: 404 });
+      const result = await checkLink(link, { ...deps, isOnline });
+      expect(result.status).toBe('ghost');
+      expect(isOnline).not.toHaveBeenCalled();
+    });
+  });
 });
+

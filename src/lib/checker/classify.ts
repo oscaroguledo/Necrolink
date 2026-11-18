@@ -29,6 +29,7 @@ const DEAD_ERRORS: Partial<Record<FetchErrorCode, string>> = {
 const UNCHECKED_ERRORS: Partial<Record<FetchErrorCode, string>> = {
   BLOCKED_ADDRESS: 'This link points to a private or internal address, so it was not checked',
   INVALID_URL: 'This is not a valid web address',
+  DNS_TEMPORARY: 'The domain name could not be looked up right now; try again in a few minutes',
 };
 
 const LOGIN_PATH = /\/(log-?in|sign-?in|signon|auth|sso|account\/login|session\/new)(\/|$|\?)/i;

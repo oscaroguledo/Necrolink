@@ -151,6 +151,7 @@ describe('classify', () => {
       [{ error: 'BLOCKED_ADDRESS' as const }, /private or internal/],
       [{ error: 'INVALID_URL' as const }, /not a valid/],
       [{ status: 429 }, /rate-limited/],
+      [{ error: 'DNS_TEMPORARY' as const }, /could not be looked up right now/],
     ])('%o', (overrides, reason) => {
       const c = classify(fetched(overrides), URL_);
       expect(c.verdict).toBe('unchecked');
