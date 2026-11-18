@@ -2,7 +2,7 @@
 
 import type { ClientLink, ClientResult } from '@/lib/client/api';
 import { LinkCard } from './LinkCard';
-import { STATUS, STATUS_ORDER, StatusEmoji, type ResultStatus } from './status';
+import { STATUS, STATUS_ORDER, type ResultStatus } from './status';
 
 interface Props {
   links: ClientLink[];
@@ -27,14 +27,16 @@ export function Graveyard({ links, results, selected, onToggle }: Props) {
         if (items.length === 0) return null;
         const style = STATUS[status];
         const heading = (
-          <span className="flex items-baseline gap-2">
-            <StatusEmoji status={status} />
-            <span className={`font-display text-2xl ${style.text}`}>{style.plural}</span>
-            <span className="text-base text-mist-muted tabular-nums">({items.length})</span>
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span aria-hidden="true" className={`text-2xl sm:text-3xl ${status === 'living' ? 'flicker inline-block' : ''}`}>
+              {style.emoji}
+            </span>
+            <span className={`font-spooky text-3xl tracking-wide sm:text-4xl ${style.text}`}>{style.plural}</span>
+            <span className="font-display text-lg text-mist-muted tabular-nums">({items.length})</span>
           </span>
         );
         const cards = (
-          <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+          <ul className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {items.map(({ link, result }) => (
               <LinkCard
                 key={link.id}
@@ -52,16 +54,18 @@ export function Graveyard({ links, results, selected, onToggle }: Props) {
             {status === 'living' ? (
               // Healthy links matter least; keep them out of the way
               <details>
-                <summary className="cursor-pointer list-none">
+                <summary className="cursor-pointer list-none rounded-xl py-1 [&::-webkit-details-marker]:hidden">
                   {heading}
-                  <span className="mt-1 block text-sm text-mist-muted">{style.blurb} Show them.</span>
+                  <span className="mt-1 block text-sm text-mist-muted">
+                    {style.blurb} <span className="underline underline-offset-4">Show them.</span>
+                  </span>
                 </summary>
                 {cards}
               </details>
             ) : (
               <>
                 <h2>{heading}</h2>
-                <p className="mt-1 text-sm text-mist-muted">{style.blurb}</p>
+                <p className="mt-1 max-w-2xl text-pretty text-sm text-mist-muted">{style.blurb}</p>
                 {cards}
               </>
             )}

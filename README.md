@@ -4,7 +4,7 @@
 
 Necrolink finds broken links in your documents and brings them back to life using the Internet Archive's Wayback Machine. Unlike traditional link checkers that only catch 404s, Necrolink also detects **zombie links** — URLs that still load but no longer show the content you originally cited.
 
-![The Necrolink graveyard: a resurrected ghost link, two zombie links that now redirect to Yahoo, and two lost souls](docs/screenshots/graveyard.png)
+![The Necrolink graveyard: a moonlit results page with a resurrected ghost link and zombie links](docs/screenshots/graveyard.png)
 
 ## 🪦 The Problem
 

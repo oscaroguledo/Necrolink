@@ -28,7 +28,7 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   // URLs come from documents and redirects: never render javascript:, data:, ...
   if (!/^https?:\/\//i.test(href)) return <span>{children}</span>;
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline decoration-1 underline-offset-2 hover:text-white">
+    <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="inline-block py-1 underline decoration-1 underline-offset-2 hover:text-white">
       {children}
       <span className="sr-only"> (opens in a new tab)</span>
       <span aria-hidden="true"> ↗</span>
@@ -50,28 +50,33 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
       initial={reduceMotion ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className={`tombstone border bg-night-800/80 px-5 pb-4 pt-6 ${style.border}`}
+      data-card
+      className={`tombstone stone mossy flex flex-col border px-4 pb-6 pt-6 transition-shadow duration-300 sm:px-6 sm:pt-7 ${style.border} ${style.glow}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className={`text-xs font-semibold uppercase tracking-wider ${style.text}`}>
-            <StatusEmoji status={status} /> {style.label}
-            {where(link) && <span className="ml-2 font-normal normal-case tracking-normal text-mist-faint">· {where(link)}</span>}
-          </p>
-          <h3 className="mt-1 wrap-break-word font-display text-lg text-mist">{link.text || link.originalUrl}</h3>
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <p className={`pt-1 text-xs font-semibold uppercase tracking-[0.18em] ${style.text}`}>
+          <StatusEmoji status={status} /> {style.label}
+          {where(link) && <span className="ml-2 font-normal normal-case tracking-normal text-mist-faint">· {where(link)}</span>}
+        </p>
         {fixable && (
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <input id={checkboxId} type="checkbox" checked={selected} onChange={onToggle} className="h-4 w-4 accent-emerald-300" />
-            <label htmlFor={checkboxId} className="text-xs text-mist-muted">
-              {status === 'ghost' ? 'Resurrect' : 'Flag'}
-              <span className="sr-only"> {link.text || link.originalUrl} in the download</span>
-            </label>
-          </div>
+          <label
+            htmlFor={checkboxId}
+            className={`-my-1 inline-flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-full border px-3 text-xs font-semibold transition ${
+              selected ? `${style.border} ${style.bg} ${style.text}` : 'border-night-600 text-mist-muted hover:text-mist'
+            }`}
+          >
+            <input id={checkboxId} type="checkbox" checked={selected} onChange={onToggle} className="size-4 accent-emerald-300" />
+            {status === 'ghost' ? 'Resurrect' : 'Flag'}
+            <span className="sr-only"> {link.text || link.originalUrl} in the download</span>
+          </label>
         )}
       </div>
+      <h3 className="engraved mt-2 wrap-break-word font-display text-xl leading-snug text-mist">{link.text || link.originalUrl}</h3>
+      <p aria-hidden="true" className="mt-0.5 font-display text-sm italic text-mist-faint">
+        {style.epitaph}
+      </p>
 
-      <p className="mt-2 break-all font-mono text-xs text-mist-muted">
+      <p className="mt-3 break-all font-mono text-xs text-mist-muted">
         {status === 'ghost' || status === 'lost' ? <s className="decoration-status-ghost/70">{link.originalUrl}</s> : link.originalUrl}
       </p>
 
@@ -85,7 +90,7 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
       )}
 
       {status === 'zombie' && (
-        <div className="mt-3 space-y-1 rounded-lg bg-night-900/70 p-3 text-sm">
+        <div className="mt-3 space-y-1 rounded-lg border border-status-zombie/15 bg-night-900/70 p-3 text-sm">
           {zombie?.archivedTitle && (
             <p>
               <span className="text-mist-faint">Then: </span>
