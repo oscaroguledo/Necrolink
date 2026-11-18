@@ -13,7 +13,16 @@ interface Props {
   onReset: () => void;
 }
 
-export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClosePreview, onDownload, onReset }: Props) {
+export function ExportBar({
+  isReport,
+  fixCount,
+  busy,
+  preview,
+  onPreview,
+  onClosePreview,
+  onDownload,
+  onReset,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -31,9 +40,21 @@ export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClos
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-pretty text-sm text-mist-muted">
             <span aria-hidden="true">⚱️ </span>
-            {isReport
-              ? 'PDFs are not rewritten: download a report of every link and its fix.'
-              : `${fixCount} ${fixCount === 1 ? 'link' : 'links'} will be resurrected or flagged. Everything else stays exactly as written.`}
+            {isReport ? (
+              'PDFs are not rewritten: download a report of every link and its fix.'
+            ) : (
+              <>
+                <span
+                  key={fixCount}
+                  className="count-pop inline-block font-bold text-status-living tabular-nums"
+                >
+                  {fixCount}
+                </span>{' '}
+                {fixCount === 1 ? 'link' : 'links'} will be resurrected or
+                flagged in your download. Untick any link above to leave it as
+                it is; everything else stays exactly as written.
+              </>
+            )}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
             <button
@@ -72,7 +93,10 @@ export function ExportBar({ isReport, fixCount, busy, preview, onPreview, onClos
       >
         <div className="flex h-full flex-col sm:max-h-[85vh]">
           <div className="flex items-center justify-between gap-3 border-b border-night-600 px-4 py-3 sm:px-5">
-            <h2 id="preview-heading" className="font-display text-lg sm:text-xl">
+            <h2
+              id="preview-heading"
+              className="font-display text-lg sm:text-xl"
+            >
               <span aria-hidden="true">📜 </span>Preview of the {what}
             </h2>
             <button

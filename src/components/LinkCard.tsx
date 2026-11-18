@@ -91,7 +91,10 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
     >
       <Tilt
         max={6}
-        className={`tombstone stone mossy flex h-full flex-col border px-4 pb-6 pt-6 transition-shadow duration-300 sm:px-6 sm:pt-7 ${style.border} ${style.glow} ${
+        className={`tombstone stone mossy flex h-full flex-col border px-4 pb-6 pt-6 transition-[box-shadow,opacity,filter] duration-300 sm:px-6 sm:pt-7 ${style.border} ${style.glow} ${
+          // Left out of the download: fade the headstone
+          fixable && !selected ? 'opacity-55 saturate-50' : ''
+        } ${
           status === 'ghost'
             ? 'resurrect-burst'
             : status === 'zombie'
@@ -114,6 +117,11 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
           {fixable && (
             <label
               htmlFor={checkboxId}
+              title={
+                selected
+                  ? 'This link will be fixed in your download. Click to leave it as it is.'
+                  : 'This link will be left as it is. Click to fix it in your download.'
+              }
               className={`-my-1 inline-flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-full border px-3 text-xs font-semibold transition ${
                 selected
                   ? `${style.border} ${style.bg} ${style.text}`
@@ -127,10 +135,11 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
                 onChange={onToggle}
                 className="size-4 accent-emerald-300"
               />
-              {status === 'ghost' ? 'Resurrect' : 'Flag'}
+              <span aria-hidden="true">
+                {selected ? 'Fixing in download' : 'Not fixing'}
+              </span>
               <span className="sr-only">
-                {' '}
-                {link.text || link.originalUrl} in the download
+                Fix {link.text || link.originalUrl} in the download
               </span>
             </label>
           )}
@@ -156,12 +165,17 @@ export function LinkCard({ link, result, selected, onToggle }: Props) {
         <p className="mt-3 text-sm text-mist">{result.reason}</p>
 
         {status === 'ghost' && result.archived && (
-          <p className="mt-2 text-sm text-status-living">
-            <span aria-hidden="true">⏮️ </span>
-            <ExternalLink href={result.archived.url}>
-              Archived copy from {date(result.archived.timestamp)}
-            </ExternalLink>
-          </p>
+          <a
+            href={result.archived.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-full border border-status-living/60 bg-status-living/10 px-4 py-2 text-sm font-semibold text-status-living transition hover:bg-status-living/20 hover:shadow-[0_0_24px_rgba(52,211,153,0.35)]"
+          >
+            <span aria-hidden="true">⏮️</span>
+            Open the resurrected page ({date(result.archived.timestamp)})
+            <span className="sr-only"> (opens in a new tab)</span>
+            <span aria-hidden="true">↗</span>
+          </a>
         )}
 
         {status === 'zombie' && (
