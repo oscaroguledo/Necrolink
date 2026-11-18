@@ -30,7 +30,7 @@ const snap = (timestamp: string, statusCode = '200'): CdxSnapshot => ({
 type FetchArgs = [input: string | URL | Request, init?: RequestInit];
 
 function mockFetch(body: unknown, status = 200) {
-  return vi.fn<FetchArgs, Promise<Response>>(
+  return vi.fn<(...args: FetchArgs) => Promise<Response>>(
     async () => new Response(JSON.stringify(body), { status })
   );
 }
@@ -168,7 +168,7 @@ describe('findArchivedSnapshot', () => {
   });
 
   test('throws WaybackError when the network fails', async () => {
-    const failing = vi.fn<FetchArgs, Promise<Response>>(async () => {
+    const failing = vi.fn<(...args: FetchArgs) => Promise<Response>>(async () => {
       throw new TypeError('fetch failed');
     });
     await expect(findArchivedSnapshot('https://x.example.com/', undefined, deps(failing))).rejects.toThrow(
@@ -264,7 +264,7 @@ describe('Internet Archive circuit breaker', () => {
   });
 
   test('a refused connection trips the breaker', async () => {
-    const refused = vi.fn<FetchArgs, Promise<Response>>(async () => {
+    const refused = vi.fn<(...args: FetchArgs) => Promise<Response>>(async () => {
       throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
     });
     await expect(findArchivedSnapshot('https://a.example.com/', undefined, deps(refused))).rejects.toThrow(/limiting requests/);

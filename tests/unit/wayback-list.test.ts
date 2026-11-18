@@ -19,7 +19,7 @@ const HEADER = ['timestamp', 'original', 'statuscode', 'mimetype'];
 const URL_ = 'https://example.com/page';
 
 function setup(body: unknown, status = 200) {
-  const fetchMock = vi.fn<[input: string | URL | Request, init?: RequestInit], Promise<Response>>(
+  const fetchMock = vi.fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>(
     async () => new Response(JSON.stringify(body), { status })
   );
   const deps = {

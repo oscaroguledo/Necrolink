@@ -102,7 +102,7 @@ describe('detectZombie: uncertain cases (stage 2)', () => {
   });
 
   test('goes to the AI and uses its verdict', async () => {
-    const analyze = vi.fn<[AiAnalysisInput], Promise<AiAnalysis>>(async () => aiSays(false));
+    const analyze = vi.fn<(input: AiAnalysisInput) => Promise<AiAnalysis>>(async () => aiSays(false));
     const report = await detectZombie(input(), deps(rewritten, { analyze }).d);
 
     expect(analyze).toHaveBeenCalledOnce();

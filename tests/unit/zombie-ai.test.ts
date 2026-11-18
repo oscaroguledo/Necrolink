@@ -24,7 +24,7 @@ const INPUT: AiAnalysisInput = {
 
 type FetchArgs = [input: string | URL | Request, init?: RequestInit];
 const reply = (content: string, status = 200) =>
-  vi.fn<FetchArgs, Promise<Response>>(
+  vi.fn<(...args: FetchArgs) => Promise<Response>>(
     async () => new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 900 } }), { status })
   );
 const ZOMBIE_JSON =
@@ -108,7 +108,7 @@ describe('analyzeWithAI', () => {
 
   test('retries once on 429, then succeeds', async () => {
     const fetchImpl = vi
-      .fn<FetchArgs, Promise<Response>>()
+      .fn<(...args: FetchArgs) => Promise<Response>>()
       .mockResolvedValueOnce(new Response('busy', { status: 429 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: ZOMBIE_JSON } }] })));
     const sleep = vi.fn(async () => undefined);
@@ -127,7 +127,7 @@ describe('analyzeWithAI', () => {
     await expect(
       analyzeWithAI(INPUT, { fetch: reply('I think it is fine') as unknown as typeof fetch, config: CONFIG })
     ).rejects.toThrow(AiError);
-    const offline = vi.fn<FetchArgs, Promise<Response>>(async () => {
+    const offline = vi.fn<(...args: FetchArgs) => Promise<Response>>(async () => {
       throw new TypeError('fetch failed');
     });
     await expect(analyzeWithAI(INPUT, { fetch: offline as unknown as typeof fetch, config: CONFIG })).rejects.toThrow(

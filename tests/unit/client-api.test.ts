@@ -24,7 +24,7 @@ type Stream = (endpoint: string, links: LinkToCheck[], options: StreamOptions) =
 describe('checkAllLinks', () => {
   test('sends at most 500 links per request, in order, and passes every result on', async () => {
     const batches: number[] = [];
-    const stream = vi.fn<Parameters<Stream>, ReturnType<Stream>>(async (_endpoint, links, options) => {
+    const stream = vi.fn<Stream>(async (_endpoint, links, options) => {
       batches.push(links.length);
       for (const l of links) options.onResult({ linkId: l.id, status: 'living' } as never);
     });
@@ -36,7 +36,7 @@ describe('checkAllLinks', () => {
   });
 
   test('forwards citation dates', async () => {
-    const stream = vi.fn<Parameters<Stream>, ReturnType<Stream>>(async () => undefined);
+    const stream = vi.fn<Stream>(async () => undefined);
     await checkAllLinks([link(1, '2023-06-15T00:00:00.000Z')], () => undefined, undefined, stream);
     expect(JSON.parse(JSON.stringify(stream.mock.calls[0]![1]))).toEqual([
       { id: 'link_1', url: 'https://site1.example.com/', citationDate: '2023-06-15T00:00:00.000Z' },
@@ -45,7 +45,7 @@ describe('checkAllLinks', () => {
 
   test('stops quietly when cancelled, between batches too', async () => {
     const controller = new AbortController();
-    const stream = vi.fn<Parameters<Stream>, ReturnType<Stream>>(async (_e, _l, options) => {
+    const stream = vi.fn<Stream>(async (_e, _l, options) => {
       controller.abort();
       options.onError(new StreamError('Stream cancelled', 'CANCELLED'));
     });
@@ -54,7 +54,7 @@ describe('checkAllLinks', () => {
   });
 
   test('surfaces real errors with their message', async () => {
-    const stream = vi.fn<Parameters<Stream>, ReturnType<Stream>>(async (_e, _l, options) => {
+    const stream = vi.fn<Stream>(async (_e, _l, options) => {
       options.onError(new StreamError('At most 500 links per request', 'INVALID_REQUEST'));
     });
     await expect(checkAllLinks([link(1)], () => undefined, undefined, stream)).rejects.toThrow('At most 500 links per request');
