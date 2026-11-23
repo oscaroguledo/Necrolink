@@ -104,7 +104,7 @@ necrolink/
 
 ### Add a New Link Extractor
 
-1. Read the spec: `.kiro/specs/01-link-extraction.md`
+1. Read the spec: `.kiro/specs/link-extraction/` (requirements, design, tasks)
 2. Create file: `src/lib/extractors/your-format.ts`
 3. Write property-based tests: `tests/property/your-format.test.ts`
 4. Add to extractor factory: `src/lib/extractors/index.ts`

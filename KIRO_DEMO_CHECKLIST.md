@@ -26,13 +26,11 @@ This document tracks **how** you're using Kiro IDE features for the hackathon wr
 
 **Purpose**: Structured feature specifications with clear success criteria.
 
-**What we created**:
-- `.kiro/specs/01-link-extraction.md` - First spec for parsing PDFs, Markdown, HTML
-
-**What we'll create**:
-- `.kiro/specs/02-link-checking.md` - Ghost/lost soul/zombie/living classification
-- `.kiro/specs/03-zombie-detection.md` - AI-powered content comparison
-- `.kiro/specs/04-document-export.md` - Reconstructing fixed documents
+**What we created** (each folder holds `requirements.md`, `design.md` and `tasks.md`):
+- `.kiro/specs/link-extraction/` - Parsing PDFs, Markdown, HTML
+- `.kiro/specs/link-checking/` - Ghost/lost soul/zombie/living classification
+- `.kiro/specs/zombie-detection/` - AI-powered content comparison
+- `.kiro/specs/document-export/` - Reconstructing fixed documents
 
 **How it helps**:
 - Clear acceptance criteria before coding
