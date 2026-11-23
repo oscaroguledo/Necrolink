@@ -53,7 +53,7 @@ Untick one link, click **Preview**, then **Download fixed document**.
 Switch to the editor.
 - `.kiro/specs/`: "Each feature started as a Kiro spec: requirements, design, tasks."
 - `.kiro/steering/`: "Steering docs kept the theme, conventions and API rules consistent."
-- `.kiro/hooks/`: "Hooks ran the tests on every save and kept the README in sync with the specs."
+- `.kiro/hooks/`: "After every file Kiro edits, a hook runs the affected tests. After every spec task, another type-checks, lints and runs the whole suite, so a task can't quietly break earlier work. A third keeps the README in sync with the specs."
 - `.agents/tasks/`: "Kiro wrote implementation plans and reviewed its own work."
 - `.kiro/settings/mcp.json` + `mcp-wayback/`: show Kiro's chat calling `find_snapshot` or `list_snapshots` (e.g. "When did Google Reader stop being archived as a working page?"). "The same archive tools as the app, available to Kiro while I write."
 - [BUGS_FOUND.md](../BUGS_FOUND.md): "Property-based tests caught real bugs: picking the closest snapshot by subtracting timestamps as numbers made a 1-second gap look 8.87 billion apart."

@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Verify after spec task",
+      "trigger": "PostTaskExec",
+      "description": "After each spec task: type-check, lint and run the whole test suite, so a task can never silently break earlier work (see steering/working-with-existing-code.md)",
+      "action": {
+        "type": "command",
+        "command": "npx tsc --noEmit && npx tsc --noEmit -p tests && npx eslint src tests mcp-wayback --max-warnings 0 && npx vitest run"
+      },
+      "timeout": 600
+    }
+  ]
+}

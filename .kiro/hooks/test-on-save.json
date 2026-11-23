@@ -4,13 +4,13 @@
     {
       "name": "Run Tests on Save",
       "trigger": "PostFileSave",
-      "description": "Automatically run tests when TypeScript files are saved",
+      "description": "After the agent edits a TypeScript file, run the tests affected by uncommitted changes (vitest run exits; plain npm test would start watch mode and never finish)",
       "matcher": "\\.(ts|tsx)$",
       "action": {
         "type": "command",
-        "command": "npm test -- --passWithNoTests --silent",
-        "timeout": 30
-      }
+        "command": "npx vitest run --changed --passWithNoTests"
+      },
+      "timeout": 180
     }
   ]
 }
